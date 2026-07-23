@@ -49,7 +49,7 @@ function Dashboard() {
         totalAudits: audits.count ?? 0,
         totalNG: ng.count ?? 0,
         openActions:
-          actions.data?.filter((a) => a.status !== "closed").length ?? 0,
+          actions.data?.filter((a) => a.status !== "Close").length ?? 0,
         score: total ? Math.round((ok / total) * 1000) / 10 : 0,
       };
     },
