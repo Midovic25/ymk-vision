@@ -63,7 +63,7 @@ function AdminPage() {
   });
 
   const revoke = useMutation({
-    mutationFn: async (p: { userId: string; role: string }) => {
+    mutationFn: async (p: { userId: string; role: Role }) => {
       const { error } = await supabase
         .from("user_roles")
         .delete()
@@ -120,7 +120,7 @@ function AdminPage() {
                           key={r}
                           variant="secondary"
                           className="cursor-pointer"
-                          onClick={() => revoke.mutate({ userId: u.id, role: r })}
+                          onClick={() => revoke.mutate({ userId: u.id, role: r as Role })}
                           title="Cliquer pour révoquer"
                         >
                           {r} ×
