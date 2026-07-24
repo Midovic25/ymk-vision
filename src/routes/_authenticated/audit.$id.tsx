@@ -403,7 +403,7 @@ function NgDialog({
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const { data: responsibles } = useQuery2({
+  const { data: responsibles } = useQuery({
     queryKey: ["action-responsibles"],
     queryFn: async () => {
       const { data: rows } = await supabase
