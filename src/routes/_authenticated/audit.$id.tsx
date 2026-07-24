@@ -24,7 +24,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Camera, Check, X, Minus, Lock, Save } from "lucide-react";
-import { useQuery as useQuery2 } from "@tanstack/react-query";
 
 type Mode = "ALL" | "ONE" | "ONE_PLUS";
 type Status = "OK" | "NG" | "NA";
