@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Camera, Check, X, Minus, Lock, Save } from "lucide-react";
+import { useQuery as useQuery2 } from "@tanstack/react-query";
 
 type Mode = "ALL" | "ONE" | "ONE_PLUS";
 type Status = "OK" | "NG" | "NA";
@@ -399,12 +400,32 @@ function NgDialog({
   const [desc, setDesc] = useState("");
   const [department, setDepartment] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const { data: responsibles } = useQuery2({
+    queryKey: ["action-responsibles"],
+    queryFn: async () => {
+      const { data: rows } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "action_responsible");
+      const ids = (rows ?? []).map((r) => r.user_id);
+      if (!ids.length) return [];
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, department")
+        .in("id", ids);
+      return profs ?? [];
+    },
+  });
 
   async function save() {
     if (!dialog) return;
     if (!desc.trim()) return toast.error("Décrivez la non-conformité");
+    if (!assignedTo) return toast.error("Assignez un Responsable Action");
+    if (!dueDate) return toast.error("Date limite requise");
     setBusy(true);
     try {
       let evidence_url: string | null = null;
@@ -421,6 +442,7 @@ function NgDialog({
         issue_description: desc,
         department: department || null,
         due_date: dueDate || null,
+        assigned_to: assignedTo || null,
         evidence_url,
       });
       if (error) throw error;
@@ -429,6 +451,7 @@ function NgDialog({
       setDesc("");
       setDepartment("");
       setDueDate("");
+      setAssignedTo("");
       setFile(null);
       onClose();
     } catch (e: any) {
@@ -442,19 +465,40 @@ function NgDialog({
     <Dialog open={!!dialog} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            Non-conformité #{dialog?.itemCode}
+          <DialogTitle className="text-destructive">
+            Rapport d'incident NG · Item #{dialog?.itemCode}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <Label>Description du problème *</Label>
+            <Label>Description de la non-conformité *</Label>
             <Textarea
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
               rows={3}
-              placeholder="Ex: absence de marquage sur le poste..."
+              placeholder="Ex : absence de marquage sur le poste, câblage hors gabarit…"
             />
+          </div>
+          <div>
+            <Label>Responsable de l'action *</Label>
+            <Select value={assignedTo} onValueChange={setAssignedTo}>
+              <SelectTrigger>
+                <SelectValue placeholder="Attribuer à un Responsable Action…" />
+              </SelectTrigger>
+              <SelectContent>
+                {(responsibles ?? []).map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.full_name ?? p.email}
+                    {p.department ? ` — ${p.department}` : ""}
+                  </SelectItem>
+                ))}
+                {responsibles && responsibles.length === 0 && (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">
+                    Aucun Responsable Action déclaré — contactez l'administrateur.
+                  </div>
+                )}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -462,20 +506,21 @@ function NgDialog({
               <Input
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                placeholder="Ex: Production"
+                placeholder="Ex : Production"
               />
             </div>
             <div>
-              <Label>Deadline</Label>
+              <Label>Date limite *</Label>
               <Input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
               />
             </div>
           </div>
           <div>
-            <Label>Preuve photo</Label>
+            <Label>Preuve visuelle (photo terrain)</Label>
             <div className="flex items-center gap-2 mt-1">
               <Input
                 type="file"
@@ -492,7 +537,7 @@ function NgDialog({
             Annuler
           </Button>
           <Button onClick={save} disabled={busy}>
-            <Save className="h-4 w-4 mr-1" /> Enregistrer
+            <Save className="h-4 w-4 mr-1" /> Créer le rapport NG
           </Button>
         </DialogFooter>
       </DialogContent>
