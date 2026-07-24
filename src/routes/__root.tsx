@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import logoAsset from "@/assets/yazaki_logo.png.asset.json";
 
 function NotFoundComponent() {
   return (
@@ -78,17 +79,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Yazaki MOTO — YMK Kenitra Audit Platform" },
+      { title: "Yazaki YMK — Plateforme Numérique MOTO" },
       {
         name: "description",
         content:
-          "Plateforme industrielle Yazaki Morocco YMK Kenitra pour la digitalisation des audits MOTO et le suivi des actions correctives.",
+          "Plateforme numérique Yazaki Morocco YMK Kenitra pour le Visual Management, les audits MOTO et le suivi en temps réel des plans d'action.",
       },
       { name: "author", content: "Yazaki Morocco YMK" },
-      { property: "og:title", content: "Yazaki MOTO — YMK Kenitra" },
+      { property: "og:title", content: "Yazaki YMK — Plateforme Numérique MOTO" },
       {
         property: "og:description",
-        content: "Gestion digitale des audits MOTO et actions correctives.",
+        content:
+          "Digitalisation globale du Visual Management, des audits qualité et du suivi des plans d'action — Yazaki YMK Kenitra.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -98,7 +100,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: logoAsset.url, type: "image/png" },
     ],
   }),
   shellComponent: RootShell,
