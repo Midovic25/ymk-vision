@@ -22,14 +22,23 @@ import {
 } from "@/components/ui/sidebar";
 import logoAsset from "@/assets/yazaki_logo.png.asset.json";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { useCurrentUser, primaryRoute } from "@/hooks/use-current-user";
 
-const items = [
-  { title: "Accueil", url: "/", icon: Home, exact: true },
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Saisie Audit", url: "/audit", icon: ClipboardList },
-  { title: "Actions NG", url: "/actions", icon: AlertTriangle },
-  { title: "Admin", url: "/admin", icon: Users, adminOnly: true },
+type Item = {
+  title: string;
+  url: string;
+  icon: typeof Home;
+  exact?: boolean;
+  adminOnly?: boolean;
+  roles?: string[];
+};
+
+const items: Item[] = [
+  { title: "Accueil", url: "/home", icon: Home, exact: true },
+  { title: "Tableau de bord", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "department_manager", "moto_responsible"] },
+  { title: "Saisie d'audit", url: "/audit", icon: ClipboardList, roles: ["admin", "moto_responsible"] },
+  { title: "Plans d'action", url: "/actions", icon: AlertTriangle, roles: ["admin", "action_responsible", "department_manager", "moto_responsible"] },
+  { title: "Administration", url: "/admin", icon: Users, adminOnly: true },
   { title: "Mon profil", url: "/profile", icon: User },
 ];
 
@@ -39,18 +48,25 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { roles } = useCurrentUser();
   const isAdmin = roles.includes("admin");
+  const homeUrl = primaryRoute(roles);
 
   const isActive = (url: string, exact?: boolean) =>
-    exact ? pathname === url : pathname === url || pathname.startsWith(url + "/");
+    exact
+      ? pathname === url || (url === "/home" && pathname === homeUrl)
+      : pathname === url || pathname.startsWith(url + "/");
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-2">
-          <img src={logoAsset.url} alt="Yazaki" className="h-8 w-auto bg-white rounded p-1" />
+        <div className="flex items-center gap-2 px-2 py-3">
+          <img
+            src={logoAsset.url}
+            alt="Yazaki"
+            className={collapsed ? "h-8 w-auto object-contain" : "h-10 w-auto object-contain"}
+          />
           {!collapsed && (
             <div className="leading-tight">
-              <div className="text-sm font-bold text-sidebar-foreground">YAZAKI</div>
+              <div className="text-sm font-bold text-sidebar-foreground tracking-wide">YAZAKI</div>
               <div className="text-[10px] uppercase tracking-widest text-sidebar-foreground/60">
                 MOTO · YMK Kenitra
               </div>
@@ -64,7 +80,11 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items
-                .filter((it) => !it.adminOnly || isAdmin)
+                .filter((it) => {
+                  if (it.adminOnly) return isAdmin;
+                  if (it.roles) return isAdmin || it.roles.some((r) => roles.includes(r));
+                  return true;
+                })
                 .map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
@@ -72,7 +92,10 @@ export function AppSidebar() {
                       isActive={isActive(item.url, item.exact)}
                       tooltip={item.title}
                     >
-                      <Link to={item.url} className="flex items-center gap-3">
+                      <Link
+                        to={item.url === "/home" ? homeUrl : item.url}
+                        className="flex items-center gap-3"
+                      >
                         <item.icon className="h-5 w-5" />
                         {!collapsed && <span>{item.title}</span>}
                       </Link>
