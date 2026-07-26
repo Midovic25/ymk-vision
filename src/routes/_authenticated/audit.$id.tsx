@@ -485,7 +485,7 @@ function NgDialog({
                 <SelectValue placeholder="Attribuer à un Responsable Action…" />
               </SelectTrigger>
               <SelectContent>
-                {(responsibles ?? []).map((p: { id: string; full_name: string | null; email: string; department: string | null }) => (
+                {(responsibles ?? []).map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.full_name ?? p.email}
                     {p.department ? ` — ${p.department}` : ""}
