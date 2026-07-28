@@ -33,7 +33,7 @@ function AdminPage() {
     queryFn: async () => {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, email, full_name, department");
+        .select("id, email, full_name, department, approved");
       const { data: rolesRows } = await supabase.from("user_roles").select("user_id, role");
       const rolesByUser = new Map<string, string[]>();
       for (const r of rolesRows ?? []) {
@@ -74,6 +74,25 @@ function AdminPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 
+  const setApproved = useMutation({
+    mutationFn: async (p: { userId: string; approved: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          approved: p.approved,
+          approved_at: p.approved ? new Date().toISOString() : null,
+        })
+        .eq("id", p.userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      toast.success("Statut du compte mis à jour");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Mise à jour impossible"),
+  });
+
   if (loading) return <div className="p-8">Chargement…</div>;
   if (!roles.includes("admin"))
     return (
@@ -103,6 +122,7 @@ function AdminPage() {
                 <th className="py-2 px-3">Nom</th>
                 <th className="py-2 px-3">Email</th>
                 <th className="py-2 px-3">Département</th>
+                <th className="py-2 px-3">Compte</th>
                 <th className="py-2 px-3">Rôles</th>
                 <th className="py-2 px-3">Attribuer</th>
               </tr>
@@ -113,6 +133,17 @@ function AdminPage() {
                   <td className="py-2 px-3 font-medium">{u.full_name ?? "—"}</td>
                   <td className="py-2 px-3">{u.email}</td>
                   <td className="py-2 px-3">{u.department ?? "—"}</td>
+                  <td className="py-2 px-3">
+                    <Button
+                      size="sm"
+                      variant={u.approved ? "outline" : "default"}
+                      onClick={() =>
+                        setApproved.mutate({ userId: u.id, approved: !u.approved })
+                      }
+                    >
+                      {u.approved ? "Validé — suspendre" : "Valider le compte"}
+                    </Button>
+                  </td>
                   <td className="py-2 px-3">
                     <div className="flex gap-1 flex-wrap">
                       {u.roles.map((r) => (
