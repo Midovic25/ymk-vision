@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Camera, Check, Lock, Minus, Save, X } from "lucide-react";
 
@@ -376,8 +376,8 @@ function AuditGrid() {
               </thead>
               <tbody>
                 {rows.map((group) => (
-                  <>
-                    <tr key={group.pillar}>
+                  <Fragment key={group.pillar}>
+                    <tr>
                       <td
                         colSpan={(workstations?.length ?? 0) + 2}
                         className="bg-muted/60 border-b px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
@@ -452,7 +452,7 @@ function AuditGrid() {
                         </tr>
                       );
                     })}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
