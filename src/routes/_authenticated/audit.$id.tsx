@@ -1,5 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,39 +14,53 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Camera, Check, X, Minus, Lock, Save } from "lucide-react";
+import { ArrowLeft, Camera, Check, Lock, Minus, Save, X } from "lucide-react";
 
-type Mode = "ALL" | "ONE" | "ONE_PLUS";
 type Status = "OK" | "NG" | "NA";
+
+interface GridItem {
+  id: string;
+  code: number;
+  description: string | null;
+  pillar: string;
+}
 
 export const Route = createFileRoute("/_authenticated/audit/$id")({
   head: () => ({
     meta: [
-      { title: "Saisie audit — Yazaki MOTO" },
+      { title: "Grille d'audit MOTO — Yazaki YMK" },
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: AuditDetail,
+  errorComponent: () => (
+    <div className="p-8 text-center">
+      <h2 className="text-lg font-bold">Audit indisponible</h2>
+      <p className="text-sm text-muted-foreground mt-1">
+        Impossible de charger cet audit. Vérifiez votre connexion ou vos droits d'accès.
+      </p>
+    </div>
+  ),
+  component: AuditGrid,
 });
 
-function AuditDetail() {
+function AuditGrid() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>("ALL");
-  const [selectedWs, setSelectedWs] = useState<string>("");
+  const [pillarFilter, setPillarFilter] = useState<string>("all");
   const [ngDialog, setNgDialog] = useState<{
-    entryId: string;
-    itemCode: number;
+    entryIds: string[];
+    item: GridItem;
+    workstationLabel: string;
   } | null>(null);
 
   const { data: audit } = useQuery({
@@ -54,7 +68,7 @@ function AuditDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("audits")
-        .select("*, lines(id, name)")
+        .select("id, audit_date, status, score, plant, line_id, area_id, lines(name), areas(name)")
         .eq("id", id)
         .single();
       if (error) throw error;
@@ -62,279 +76,400 @@ function AuditDetail() {
     },
   });
 
-  const lineId = (audit as any)?.lines?.id;
+  const lineId = audit?.line_id;
+  const areaId = audit?.area_id ?? null;
 
   const { data: workstations } = useQuery({
-    queryKey: ["ws", lineId],
+    queryKey: ["grid-ws", lineId, areaId],
     enabled: !!lineId,
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("workstations")
-        .select("id, name, areas(name), pillars(name)")
-        .eq("line_id", lineId)
+        .select("id, name, area_id, areas(name), pillars(name)")
+        .eq("line_id", lineId!)
         .order("name");
+      if (areaId) q = q.eq("area_id", areaId);
+      const { data, error } = await q;
+      if (error) throw error;
       return data ?? [];
     },
   });
 
-  const { data: itemsMap } = useQuery({
-    queryKey: ["ws-items", lineId],
+  const { data: mapping } = useQuery({
+    queryKey: ["grid-items", lineId, areaId, workstations?.length],
     enabled: !!workstations && workstations.length > 0,
     queryFn: async () => {
       const wsIds = workstations!.map((w) => w.id);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("workstation_items")
-        .select("workstation_id, audit_items(id, code, description)")
+        .select("workstation_id, audit_items(id, code, description, pillars(name))")
         .in("workstation_id", wsIds);
-      const m = new Map<string, Array<{ id: string; code: number; description: string | null }>>();
-      for (const r of data ?? []) {
-        const arr = m.get(r.workstation_id) ?? [];
-        arr.push((r as any).audit_items);
-        m.set(r.workstation_id, arr);
+      if (error) throw error;
+      const items = new Map<string, GridItem>();
+      const pairs = new Set<string>();
+      for (const row of data ?? []) {
+        const it = row.audit_items as unknown as {
+          id: string;
+          code: number;
+          description: string | null;
+          pillars: { name: string } | null;
+        } | null;
+        if (!it) continue;
+        items.set(it.id, {
+          id: it.id,
+          code: it.code,
+          description: it.description,
+          pillar: it.pillars?.name ?? "Autres",
+        });
+        pairs.add(`${row.workstation_id}:${it.id}`);
       }
-      for (const [k, v] of m) m.set(k, v.sort((a, b) => a.code - b.code));
-      return m;
+      return { items, pairs };
     },
   });
 
-  const { data: entries, refetch: refetchEntries } = useQuery({
+  const { data: entries } = useQuery({
     queryKey: ["entries", id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("audit_entries")
         .select("id, workstation_id, item_id, status")
         .eq("audit_id", id);
+      if (error) throw error;
       const m = new Map<string, { id: string; status: Status }>();
       for (const e of data ?? []) {
-        m.set(`${e.workstation_id}:${e.item_id}`, {
-          id: e.id,
-          status: e.status as Status,
-        });
+        m.set(`${e.workstation_id}:${e.item_id}`, { id: e.id, status: e.status as Status });
       }
       return m;
     },
   });
 
-  const saveEntry = useMutation({
-    mutationFn: async (p: { wsId: string; itemId: string; itemCode: number; status: Status }) => {
-      const key = `${p.wsId}:${p.itemId}`;
-      const existing = entries?.get(key);
-      let entryId = existing?.id;
-      if (existing) {
-        const { error } = await supabase
-          .from("audit_entries")
-          .update({ status: p.status })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from("audit_entries")
-          .insert({
-            audit_id: id,
-            workstation_id: p.wsId,
-            item_id: p.itemId,
-            status: p.status,
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
-        entryId = data.id;
+  const pillars = useMemo(() => {
+    const s = new Set<string>();
+    for (const it of mapping?.items.values() ?? []) s.add(it.pillar);
+    return Array.from(s).sort();
+  }, [mapping]);
+
+  const rows = useMemo(() => {
+    const all = Array.from(mapping?.items.values() ?? []).sort((a, b) => a.code - b.code);
+    const scoped = pillarFilter === "all" ? all : all.filter((i) => i.pillar === pillarFilter);
+    const grouped = new Map<string, GridItem[]>();
+    for (const it of scoped) {
+      const arr = grouped.get(it.pillar) ?? [];
+      arr.push(it);
+      grouped.set(it.pillar, arr);
+    }
+    return Array.from(grouped, ([pillar, items]) => ({ pillar, items }));
+  }, [mapping, pillarFilter]);
+
+  const closed = audit?.status === "closed";
+
+  const setStatus = useMutation({
+    mutationFn: async (p: { cells: Array<{ wsId: string; itemId: string }>; status: Status }) => {
+      const created: string[] = [];
+      for (const c of p.cells) {
+        const existing = entries?.get(`${c.wsId}:${c.itemId}`);
+        if (existing) {
+          const { error } = await supabase
+            .from("audit_entries")
+            .update({ status: p.status })
+            .eq("id", existing.id);
+          if (error) throw error;
+          created.push(existing.id);
+        } else {
+          const { data, error } = await supabase
+            .from("audit_entries")
+            .insert({
+              audit_id: id,
+              workstation_id: c.wsId,
+              item_id: c.itemId,
+              status: p.status,
+            })
+            .select("id")
+            .single();
+          if (error) throw error;
+          created.push(data.id);
+        }
       }
-      return { entryId: entryId!, itemCode: p.itemCode, status: p.status };
+      return created;
     },
-    onSuccess: (r) => {
-      refetchEntries();
-      if (r.status === "NG") setNgDialog({ entryId: r.entryId, itemCode: r.itemCode });
-    },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Enregistrement impossible"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["entries", id] }),
   });
+
+  async function evaluate(
+    cells: Array<{ wsId: string; itemId: string }>,
+    status: Status,
+    item: GridItem,
+    workstationLabel: string,
+  ) {
+    if (closed || cells.length === 0) return;
+    const entryIds = await setStatus.mutateAsync({ cells, status });
+    if (status === "NG") setNgDialog({ entryIds, item, workstationLabel });
+  }
+
+  const stats = useMemo(() => {
+    const s = { OK: 0, NG: 0, NA: 0, total: 0 };
+    for (const e of entries?.values() ?? []) {
+      s[e.status] += 1;
+      s.total += 1;
+    }
+    return s;
+  }, [entries]);
+  const evaluated = stats.OK + stats.NG;
+  const score = evaluated > 0 ? Math.round((stats.OK / evaluated) * 1000) / 10 : 0;
 
   const closeAudit = useMutation({
     mutationFn: async () => {
-      const total = entries?.size ?? 0;
-      const ok = Array.from(entries?.values() ?? []).filter((e) => e.status === "OK").length;
-      const score = total > 0 ? Math.round((ok / total) * 1000) / 10 : 0;
+      // 1. Génération automatique du plan d'action pour chaque NG sans rapport
+      const ngEntryIds = Array.from(entries?.entries() ?? [])
+        .filter(([, v]) => v.status === "NG")
+        .map(([, v]) => v.id);
+      if (ngEntryIds.length) {
+        const { data: existing } = await supabase
+          .from("ng_actions")
+          .select("entry_id")
+          .in("entry_id", ngEntryIds);
+        const done = new Set((existing ?? []).map((r) => r.entry_id));
+        const missing = ngEntryIds.filter((e) => !done.has(e));
+        if (missing.length) {
+          const { error } = await supabase.from("ng_actions").insert(
+            missing.map((entry_id) => ({
+              entry_id,
+              issue_description:
+                "Non-conformité relevée lors de l'audit MOTO — rapport à compléter.",
+              start_date: new Date().toISOString().slice(0, 10),
+            })),
+          );
+          if (error) throw error;
+        }
+        // 2. Notification des responsables d'action assignés
+        const { data: assigned } = await supabase
+          .from("ng_actions")
+          .select("id, assigned_to, issue_description, due_date")
+          .in("entry_id", ngEntryIds)
+          .not("assigned_to", "is", null);
+        const notif = (assigned ?? [])
+          .filter((a) => a.assigned_to)
+          .map((a) => ({
+            user_id: a.assigned_to as string,
+            action_id: a.id,
+            subject: "Nouvelle action corrective MOTO assignée",
+            body: `Non-conformité : ${a.issue_description}\nÉchéance : ${
+              a.due_date ?? "à définir"
+            }`,
+          }));
+        if (notif.length) await supabase.from("notifications").insert(notif);
+      }
+
       const { error } = await supabase
         .from("audits")
         .update({ status: "closed", closed_at: new Date().toISOString(), score })
         .eq("id", id);
       if (error) throw error;
-      return score;
+      return { score, ng: ngEntryIds.length };
     },
-    onSuccess: (score) => {
-      toast.success(`Audit clôturé — Score: ${score}%`);
+    onSuccess: (r) => {
+      toast.success(
+        `Audit clôturé — Score ${r.score}% · ${r.ng} action(s) corrective(s) générée(s)`,
+      );
       qc.invalidateQueries();
       navigate({ to: "/audit" });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Clôture impossible"),
   });
 
-  // Filter workstations displayed based on mode
-  const displayedWs = useMemo(() => {
-    if (!workstations) return [];
-    if (mode === "ALL") return workstations;
-    if (mode === "ONE") return selectedWs ? workstations.filter((w) => w.id === selectedWs) : [];
-    // ONE_PLUS: selected + all similar (same area/pillar)
-    if (mode === "ONE_PLUS" && selectedWs) {
-      const ref = workstations.find((w) => w.id === selectedWs);
-      if (!ref) return [];
-      return workstations.filter(
-        (w) =>
-          (w as any).areas?.name === (ref as any).areas?.name &&
-          (w as any).pillars?.name === (ref as any).pillars?.name,
-      );
-    }
-    return [];
-  }, [workstations, mode, selectedWs]);
-
-  const stats = useMemo(() => {
-    const s = { OK: 0, NG: 0, NA: 0, total: 0 };
-    for (const e of entries?.values() ?? []) {
-      s[e.status]++;
-      s.total++;
-    }
-    return s;
-  }, [entries]);
-  const score = stats.total > 0 ? Math.round((stats.OK / stats.total) * 1000) / 10 : 0;
-  const closed = audit?.status === "closed";
+  const lineName = (audit?.lines as { name: string } | null)?.name ?? "…";
+  const areaName = (audit?.areas as { name: string } | null)?.name;
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold">
-            Audit — {(audit as any)?.lines?.name ?? "…"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {audit?.audit_date} · {closed ? "Clôturé" : "En cours"}
-          </p>
+    <div className="p-4 md:p-6 space-y-4">
+      <Button asChild variant="ghost" size="sm">
+        <Link to="/audit">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Retour aux audits
+        </Link>
+      </Button>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:flex-wrap sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-xl md:text-2xl font-bold">Grille d'audit — {lineName}</h1>
+          <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">{audit?.plant ?? "YMK"}</Badge>
+            {areaName && <Badge variant="outline">{areaName}</Badge>}
+            <span>{audit?.audit_date}</span>
+            <span>{closed ? "Clôturé" : "Brouillon en cours"}</span>
+          </div>
         </div>
-        <div className="flex gap-6 items-center">
+        <div className="flex items-center gap-4 md:gap-6">
           <StatBadge label="OK" value={stats.OK} color="var(--status-ok)" />
           <StatBadge label="NG" value={stats.NG} color="var(--status-ng)" />
           <StatBadge label="NA" value={stats.NA} color="var(--status-na)" />
           <div className="text-right">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Score</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Conformité
+            </div>
             <div className="text-3xl font-bold text-primary">{score}%</div>
           </div>
-          {!closed && (
-            <Button variant="default" onClick={() => closeAudit.mutate()}>
-              <Lock className="h-4 w-4 mr-1" /> Clôturer
-            </Button>
-          )}
         </div>
       </div>
 
-      {!closed && (
-        <Card>
-          <CardContent className="p-4 flex flex-wrap gap-3 items-end">
-            <div>
-              <Label className="text-xs uppercase tracking-wider">Mode de saisie</Label>
-              <div className="flex gap-1 mt-1">
-                {(["ALL", "ONE", "ONE_PLUS"] as Mode[]).map((m) => (
-                  <Button
-                    key={m}
-                    size="sm"
-                    variant={mode === m ? "default" : "outline"}
-                    onClick={() => setMode(m)}
-                  >
-                    {m === "ALL" ? "Tous postes" : m === "ONE" ? "1 poste" : "1 + similaires"}
-                  </Button>
+      <Card>
+        <CardContent className="p-4 flex flex-wrap items-end gap-3">
+          <div className="min-w-56">
+            <Label className="text-xs uppercase tracking-wider">Pilier</Label>
+            <Select value={pillarFilter} onValueChange={setPillarFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="all">Tous les piliers</SelectItem>
+                {pillars.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
                 ))}
-              </div>
-            </div>
-            {(mode === "ONE" || mode === "ONE_PLUS") && (
-              <div className="flex-1 min-w-64">
-                <Label className="text-xs uppercase tracking-wider">Poste</Label>
-                <Select value={selectedWs} onValueChange={setSelectedWs}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir un poste..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {workstations?.map((w) => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.name} — {(w as any).areas?.name} / {(w as any).pillars?.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="ml-auto flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => toast.success("Brouillon enregistré")}
+              disabled={closed}
+            >
+              <Save className="h-4 w-4 mr-1" /> Enregistrer (brouillon)
+            </Button>
+            <Button onClick={() => closeAudit.mutate()} disabled={closed || closeAudit.isPending}>
+              <Lock className="h-4 w-4 mr-1" /> Terminer et clôturer
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="space-y-4">
-        {displayedWs.map((ws) => {
-          const items = itemsMap?.get(ws.id) ?? [];
-          return (
-            <Card key={ws.id}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <span className="font-bold">{ws.name}</span>
-                  <Badge variant="outline">{(ws as any).areas?.name}</Badge>
-                  <Badge variant="outline">{(ws as any).pillars?.name}</Badge>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {items.length} items
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-1">
-                  {items.map((it) => {
-                    const current = entries?.get(`${ws.id}:${it.id}`);
-                    return (
-                      <div
-                        key={it.id}
-                        className="flex items-center gap-2 py-1.5 border-b last:border-b-0 hover:bg-muted/40 px-2 rounded"
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Items de contrôle × Postes de travail ({workstations?.length ?? 0} postes)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-auto max-h-[70vh]">
+            <table className="text-sm border-separate border-spacing-0">
+              <thead className="sticky top-0 z-20">
+                <tr>
+                  <th className="sticky left-0 z-30 bg-card border-b border-r px-3 py-2 text-left text-xs uppercase text-muted-foreground min-w-[280px]">
+                    Item de contrôle
+                  </th>
+                  <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
+                    ALL
+                  </th>
+                  {workstations?.map((w) => (
+                    <th
+                      key={w.id}
+                      className="bg-card border-b border-r px-2 py-2 text-[11px] font-semibold whitespace-nowrap"
+                    >
+                      {w.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((group) => (
+                  <>
+                    <tr key={group.pillar}>
+                      <td
+                        colSpan={(workstations?.length ?? 0) + 2}
+                        className="bg-muted/60 border-b px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
                       >
-                        <div className="w-14 text-xs font-mono text-muted-foreground">
-                          #{it.code}
-                        </div>
-                        <div className="flex-1 text-sm">
-                          {it.description || `Item ${it.code}`}
-                        </div>
-                        <div className="flex gap-1">
-                          {(["OK", "NG", "NA"] as Status[]).map((s) => (
-                            <StatusButton
-                              key={s}
-                              status={s}
-                              active={current?.status === s}
-                              disabled={closed || saveEntry.isPending}
-                              onClick={() =>
-                                saveEntry.mutate({
-                                  wsId: ws.id,
-                                  itemId: it.id,
-                                  itemCode: it.code,
-                                  status: s,
-                                })
-                              }
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {items.length === 0 && (
-                    <div className="text-sm text-muted-foreground text-center py-4">
-                      Aucun item pour ce poste.
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-        {displayedWs.length === 0 && (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              Sélectionnez un poste pour commencer la saisie.
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                        Pilier · {group.pillar}
+                      </td>
+                    </tr>
+                    {group.items.map((it) => {
+                      const applicable = (workstations ?? []).filter((w) =>
+                        mapping?.pairs.has(`${w.id}:${it.id}`),
+                      );
+                      return (
+                        <tr key={it.id} className="hover:bg-muted/30">
+                          <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-1.5 align-top">
+                            <div className="font-medium">#{it.code}</div>
+                            <div className="text-xs text-muted-foreground line-clamp-2 max-w-[260px]">
+                              {it.description ?? "—"}
+                            </div>
+                          </td>
+                          <td className="border-b border-r px-2 py-1.5">
+                            <div className="flex gap-1">
+                              {(["OK", "NG", "NA"] as Status[]).map((s) => (
+                                <StatusButton
+                                  key={s}
+                                  status={s}
+                                  active={false}
+                                  compact
+                                  disabled={closed || setStatus.isPending}
+                                  onClick={() =>
+                                    void evaluate(
+                                      applicable.map((w) => ({ wsId: w.id, itemId: it.id })),
+                                      s,
+                                      it,
+                                      "Tous les postes",
+                                    )
+                                  }
+                                />
+                              ))}
+                            </div>
+                          </td>
+                          {workstations?.map((w) => {
+                            const ok = mapping?.pairs.has(`${w.id}:${it.id}`);
+                            const current = entries?.get(`${w.id}:${it.id}`);
+                            return (
+                              <td key={w.id} className="border-b border-r px-2 py-1.5">
+                                {ok ? (
+                                  <div className="flex gap-1">
+                                    {(["OK", "NG", "NA"] as Status[]).map((s) => (
+                                      <StatusButton
+                                        key={s}
+                                        status={s}
+                                        compact
+                                        active={current?.status === s}
+                                        disabled={closed || setStatus.isPending}
+                                        onClick={() =>
+                                          void evaluate(
+                                            [{ wsId: w.id, itemId: it.id }],
+                                            s,
+                                            it,
+                                            w.name,
+                                          )
+                                        }
+                                      />
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center text-muted-foreground">—</div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {rows.length === 0 && (
+            <div className="p-8 text-center text-muted-foreground text-sm">
+              Aucun item de contrôle pour ce périmètre.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <NgDialog dialog={ngDialog} onClose={() => setNgDialog(null)} />
+      <NgDialog
+        dialog={ngDialog}
+        auditAreaId={areaId}
+        onClose={() => setNgDialog(null)}
+      />
     </div>
   );
 }
@@ -344,32 +479,36 @@ function StatusButton({
   active,
   onClick,
   disabled,
+  compact,
 }: {
   status: Status;
   active: boolean;
   onClick: () => void;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   const Icon = status === "OK" ? Check : status === "NG" ? X : Minus;
   const bg =
     status === "OK"
       ? "bg-[var(--status-ok)]"
       : status === "NG"
-      ? "bg-[var(--status-ng)]"
-      : "bg-[var(--status-na)]";
+        ? "bg-[var(--status-ng)]"
+        : "bg-[var(--status-na)]";
+  const size = compact ? "h-7 w-7" : "h-9 w-9";
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`h-9 w-9 rounded-md flex items-center justify-center font-bold text-xs border-2 transition-all ${
+      title={status}
+      aria-label={status}
+      className={`${size} rounded-md flex items-center justify-center border-2 transition-all ${
         active
           ? `${bg} text-white border-transparent shadow`
           : "bg-background border-border text-muted-foreground hover:border-primary/50"
       } disabled:opacity-50`}
-      aria-label={status}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-3.5 w-3.5" />
     </button>
   );
 }
@@ -378,27 +517,31 @@ function StatBadge({ label, value, color }: { label: string; value: number; colo
   return (
     <div className="text-center">
       <div
-        className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded text-white"
+        className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded text-white"
         style={{ backgroundColor: color }}
       >
         {label}
       </div>
-      <div className="text-2xl font-bold mt-0.5">{value}</div>
+      <div className="text-xl font-bold mt-0.5">{value}</div>
     </div>
   );
 }
 
 function NgDialog({
   dialog,
+  auditAreaId,
   onClose,
 }: {
-  dialog: { entryId: string; itemCode: number } | null;
+  dialog: { entryIds: string[]; item: GridItem; workstationLabel: string } | null;
+  auditAreaId: string | null;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const [desc, setDesc] = useState("");
   const [department, setDepartment] = useState("");
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState("normal");
   const [assignedTo, setAssignedTo] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -420,6 +563,15 @@ function NgDialog({
     },
   });
 
+  function reset() {
+    setDesc("");
+    setDepartment("");
+    setDueDate("");
+    setPriority("normal");
+    setAssignedTo("");
+    setFile(null);
+  }
+
   async function save() {
     if (!dialog) return;
     if (!desc.trim()) return toast.error("Décrivez la non-conformité");
@@ -429,32 +581,38 @@ function NgDialog({
     try {
       let evidence_url: string | null = null;
       if (file) {
-        const path = `${dialog.entryId}/${Date.now()}-${file.name}`;
+        const path = `${dialog.entryIds[0]}/${Date.now()}-${file.name}`;
         const { error: upErr } = await supabase.storage
           .from("audit-evidence")
           .upload(path, file);
         if (upErr) throw upErr;
         evidence_url = path;
       }
-      const { error } = await supabase.from("ng_actions").insert({
-        entry_id: dialog.entryId,
-        issue_description: desc,
-        department: department || null,
-        due_date: dueDate || null,
-        assigned_to: assignedTo || null,
-        evidence_url,
-      });
+      const { error } = await supabase.from("ng_actions").upsert(
+        dialog.entryIds.map((entry_id) => ({
+          entry_id,
+          issue_description: desc,
+          department: department || null,
+          area_id: auditAreaId,
+          start_date: startDate || null,
+          due_date: dueDate,
+          priority,
+          assigned_to: assignedTo,
+          evidence_url,
+        })),
+        { onConflict: "entry_id" },
+      );
       if (error) throw error;
-      toast.success("Non-conformité enregistrée");
+      toast.success(
+        `Rapport NG enregistré (${dialog.entryIds.length} poste${
+          dialog.entryIds.length > 1 ? "s" : ""
+        })`,
+      );
       qc.invalidateQueries({ queryKey: ["actions"] });
-      setDesc("");
-      setDepartment("");
-      setDueDate("");
-      setAssignedTo("");
-      setFile(null);
+      reset();
       onClose();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Enregistrement impossible");
     } finally {
       setBusy(false);
     }
@@ -462,24 +620,28 @@ function NgDialog({
 
   return (
     <Dialog open={!!dialog} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-destructive">
-            Rapport d'incident NG · Item #{dialog?.itemCode}
+            Rapport d'incident NG · Item #{dialog?.item.code}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div>
-            <Label>Description de la non-conformité *</Label>
-            <Textarea
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              rows={3}
-              placeholder="Ex : absence de marquage sur le poste, câblage hors gabarit…"
-            />
+          <div className="rounded-md bg-muted p-3 text-xs">
+            <div>
+              <span className="font-semibold">Pilier :</span> {dialog?.item.pillar}
+            </div>
+            <div>
+              <span className="font-semibold">Poste concerné :</span> {dialog?.workstationLabel}
+            </div>
+            <div className="mt-1 text-muted-foreground">{dialog?.item.description ?? "—"}</div>
           </div>
           <div>
-            <Label>Responsable de l'action *</Label>
+            <Label>Description de l'écart *</Label>
+            <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} />
+          </div>
+          <div>
+            <Label>Responsable Action *</Label>
             <Select value={assignedTo} onValueChange={setAssignedTo}>
               <SelectTrigger>
                 <SelectValue placeholder="Attribuer à un Responsable Action…" />
@@ -491,21 +653,34 @@ function NgDialog({
                     {p.department ? ` — ${p.department}` : ""}
                   </SelectItem>
                 ))}
-                {responsibles && responsibles.length === 0 && (
-                  <div className="px-2 py-3 text-xs text-muted-foreground">
-                    Aucun Responsable Action déclaré — contactez l'administrateur.
-                  </div>
-                )}
               </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Département</Label>
+              <Input value={department} onChange={(e) => setDepartment(e.target.value)} />
+            </div>
+            <div>
+              <Label>Priorité</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Faible</SelectItem>
+                  <SelectItem value="normal">Normale</SelectItem>
+                  <SelectItem value="high">Haute</SelectItem>
+                  <SelectItem value="critical">Critique</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Date de début</Label>
               <Input
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                placeholder="Ex : Production"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
             <div>
@@ -513,8 +688,8 @@ function NgDialog({
               <Input
                 type="date"
                 value={dueDate}
+                min={startDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
               />
             </div>
           </div>

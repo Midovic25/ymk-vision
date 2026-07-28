@@ -2,10 +2,9 @@ import type { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import logoAsset from "@/assets/yazaki_logo.png.asset.json";
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { useCurrentUser, roleLabel, initialsOf } from "@/hooks/use-current-user";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
-import { LogOut, ChevronDown } from "lucide-react";
+import { LogOut, ChevronDown, ShieldAlert } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,43 +15,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link } from "@tanstack/react-router";
 
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Administrateur",
-  moto_responsible: "Responsable MOTO",
-  action_responsible: "Responsable Action",
-  department_manager: "Chef de Département",
-};
-
-function roleLabel(roles: string[]) {
-  if (!roles.length) return "Utilisateur";
-  return roles.map((r) => ROLE_LABEL[r] ?? r).join(" · ");
-}
-
-function initials(name?: string | null, email?: string | null) {
-  const src = (name && name.trim()) || (email ?? "");
-  return src
-    .split(/[\s@._-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase() ?? "")
-    .join("") || "U";
-}
-
 export function AppShell({ children, title }: { children: ReactNode; title?: string }) {
-  const { user, roles } = useCurrentUser();
-  const { data: profile } = useQuery({
-    queryKey: ["shell-profile", user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name, department")
-        .eq("id", user!.id)
-        .maybeSingle();
-      return data;
-    },
-  });
+  const { user, roles, profile, avatarSrc, loading } = useCurrentUser();
   const displayName = profile?.full_name?.trim() || user?.email?.split("@")[0] || "Utilisateur";
+  const pending = !loading && !!user && profile !== null && profile.approved === false;
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -79,8 +45,12 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
                       {roleLabel(roles)}
                     </div>
                   </div>
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground flex items-center justify-center font-bold text-sm shadow ring-2 ring-primary/10">
-                    {initials(profile?.full_name, user.email)}
+                  <div className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground flex items-center justify-center font-bold text-sm shadow ring-2 ring-primary/10">
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt={displayName} className="h-full w-full object-cover" />
+                    ) : (
+                      initialsOf(profile?.full_name, user.email)
+                    )}
                   </div>
                   <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
                 </DropdownMenuTrigger>
@@ -115,7 +85,22 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
               </DropdownMenu>
             )}
           </header>
-          <main className="flex-1">{children}</main>
+          <main className="flex-1">
+            {pending ? (
+              <div className="p-10 flex justify-center">
+                <div className="max-w-md text-center border rounded-xl p-8 bg-card">
+                  <ShieldAlert className="h-10 w-10 mx-auto text-primary mb-3" />
+                  <h2 className="text-lg font-bold">Compte en attente de validation</h2>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Votre inscription a bien été enregistrée. Un administrateur doit valider
+                    votre compte et vous attribuer un rôle avant l'accès à la plateforme.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              children
+            )}
+          </main>
         </div>
       </div>
     </SidebarProvider>

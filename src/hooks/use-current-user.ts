@@ -2,49 +2,117 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+export type AppRole =
+  | "admin"
+  | "moto_responsible"
+  | "action_responsible"
+  | "department_manager";
+
+export interface ProfileLite {
+  full_name: string | null;
+  department: string | null;
+  avatar_url: string | null;
+  approved: boolean;
+}
+
 export interface CurrentUser {
   user: User | null;
   roles: string[];
+  profile: ProfileLite | null;
+  avatarSrc: string | null;
   loading: boolean;
+}
+
+export const ROLE_LABEL: Record<string, string> = {
+  admin: "Administrateur",
+  moto_responsible: "Responsable MOTO",
+  action_responsible: "Responsable Action",
+  department_manager: "Chef de Département",
+};
+
+export function roleLabel(roles: string[]): string {
+  if (!roles.length) return "En attente de validation";
+  return roles.map((r) => ROLE_LABEL[r] ?? r).join(" · ");
+}
+
+export function initialsOf(name?: string | null, email?: string | null): string {
+  const src = (name && name.trim()) || (email ?? "");
+  return (
+    src
+      .split(/[\s@._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "U"
+  );
 }
 
 export function useCurrentUser(): CurrentUser {
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
+  const [profile, setProfile] = useState<ProfileLite | null>(null);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getUser().then(({ data }) => {
+
+    async function load(u: User | null) {
+      if (!u) {
+        if (!mounted) return;
+        setRoles([]);
+        setProfile(null);
+        setAvatarSrc(null);
+        return;
+      }
+      const [{ data: r }, { data: p }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", u.id),
+        supabase
+          .from("profiles")
+          .select("full_name, department, avatar_url, approved")
+          .eq("id", u.id)
+          .maybeSingle(),
+      ]);
+      if (!mounted) return;
+      setRoles((r ?? []).map((x) => x.role));
+      setProfile((p as ProfileLite | null) ?? null);
+      if (p?.avatar_url) {
+        const { data: signed } = await supabase.storage
+          .from("avatars")
+          .createSignedUrl(p.avatar_url, 3600);
+        if (mounted) setAvatarSrc(signed?.signedUrl ?? null);
+      } else if (mounted) {
+        setAvatarSrc(null);
+      }
+    }
+
+    supabase.auth.getUser().then(async ({ data }) => {
       if (!mounted) return;
       setUser(data.user ?? null);
-      if (data.user) {
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", data.user.id)
-          .then(({ data: r }) => {
-            if (mounted) setRoles((r ?? []).map((x) => x.role));
-          });
-      }
-      setLoading(false);
+      await load(data.user ?? null);
+      if (mounted) setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       setUser(session?.user ?? null);
-      if (!session?.user) setRoles([]);
+      void load(session?.user ?? null);
     });
+
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
     };
   }, []);
 
-  return { user, roles, loading };
+  return { user, roles, profile, avatarSrc, loading };
 }
 
+/** Route d'accueil applicative selon le rôle (utilisateur connecté). */
 export function primaryRoute(roles: string[]): string {
-  if (roles.includes("admin")) return "/admin";
+  if (roles.includes("admin")) return "/dashboard";
   if (roles.includes("department_manager")) return "/dashboard";
   if (roles.includes("action_responsible")) return "/actions";
-  return "/audit";
+  if (roles.includes("moto_responsible")) return "/dashboard";
+  return "/profile";
 }
