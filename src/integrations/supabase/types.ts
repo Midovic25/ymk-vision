@@ -370,6 +370,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_evidence: { Args: { _path: string }; Returns: boolean }
+      can_view_audit: { Args: { _audit_id: string }; Returns: boolean }
+      evidence_audit_id: { Args: { _path: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -377,6 +380,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_action_responsible: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       action_status: "Not started" | "On going" | "Close" | "In delay"
