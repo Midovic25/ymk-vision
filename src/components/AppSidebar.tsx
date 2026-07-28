@@ -46,9 +46,9 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { roles } = useCurrentUser();
+  const { roles, user } = useCurrentUser();
   const isAdmin = roles.includes("admin");
-  const homeUrl = primaryRoute(roles);
+  const homeUrl = user ? primaryRoute(roles) : "/";
 
   const isActive = (url: string, exact?: boolean) =>
     exact
@@ -59,11 +59,13 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-3">
-          <img
-            src={logoAsset.url}
-            alt="Yazaki"
-            className={collapsed ? "h-8 w-auto object-contain" : "h-10 w-auto object-contain"}
-          />
+          <div className="shrink-0 rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-black/5">
+            <img
+              src={logoAsset.url}
+              alt="Yazaki"
+              className={collapsed ? "h-7 w-auto object-contain" : "h-9 w-auto object-contain"}
+            />
+          </div>
           {!collapsed && (
             <div className="leading-tight">
               <div className="text-sm font-bold text-sidebar-foreground tracking-wide">YAZAKI</div>

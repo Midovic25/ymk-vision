@@ -109,36 +109,49 @@ export type Database = {
       }
       audits: {
         Row: {
+          area_id: string | null
           audit_date: string
           auditor_id: string
           closed_at: string | null
           created_at: string
           id: string
           line_id: string
+          plant: string
           score: number | null
           status: Database["public"]["Enums"]["audit_status"]
         }
         Insert: {
+          area_id?: string | null
           audit_date?: string
           auditor_id: string
           closed_at?: string | null
           created_at?: string
           id?: string
           line_id: string
+          plant?: string
           score?: number | null
           status?: Database["public"]["Enums"]["audit_status"]
         }
         Update: {
+          area_id?: string | null
           audit_date?: string
           auditor_id?: string
           closed_at?: string | null
           created_at?: string
           id?: string
           line_id?: string
+          plant?: string
           score?: number | null
           status?: Database["public"]["Enums"]["audit_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "audits_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "audits_line_id_fkey"
             columns: ["line_id"]
@@ -179,6 +192,9 @@ export type Database = {
           evidence_url: string | null
           id: string
           issue_description: string
+          priority: string
+          resolution_comment: string | null
+          start_date: string | null
           status: Database["public"]["Enums"]["action_status"]
           updated_at: string
         }
@@ -194,6 +210,9 @@ export type Database = {
           evidence_url?: string | null
           id?: string
           issue_description: string
+          priority?: string
+          resolution_comment?: string | null
+          start_date?: string | null
           status?: Database["public"]["Enums"]["action_status"]
           updated_at?: string
         }
@@ -209,6 +228,9 @@ export type Database = {
           evidence_url?: string | null
           id?: string
           issue_description?: string
+          priority?: string
+          resolution_comment?: string | null
+          start_date?: string | null
           status?: Database["public"]["Enums"]["action_status"]
           updated_at?: string
         }
@@ -225,6 +247,47 @@ export type Database = {
             columns: ["entry_id"]
             isOneToOne: true
             referencedRelation: "audit_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          action_id: string | null
+          body: string
+          channel: string
+          created_at: string
+          id: string
+          status: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          action_id?: string | null
+          body: string
+          channel?: string
+          created_at?: string
+          id?: string
+          status?: string
+          subject: string
+          user_id: string
+        }
+        Update: {
+          action_id?: string | null
+          body?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          status?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "ng_actions"
             referencedColumns: ["id"]
           },
         ]
@@ -246,6 +309,9 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approved: boolean
+          approved_at: string | null
+          avatar_url: string | null
           created_at: string
           department: string | null
           email: string | null
@@ -254,6 +320,9 @@ export type Database = {
           line_id: string | null
         }
         Insert: {
+          approved?: boolean
+          approved_at?: string | null
+          avatar_url?: string | null
           created_at?: string
           department?: string | null
           email?: string | null
@@ -262,6 +331,9 @@ export type Database = {
           line_id?: string | null
         }
         Update: {
+          approved?: boolean
+          approved_at?: string | null
+          avatar_url?: string | null
           created_at?: string
           department?: string | null
           email?: string | null

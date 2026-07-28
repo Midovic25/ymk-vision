@@ -17,6 +17,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedActionsRouteImport } from './routes/_authenticated/actions'
+import { Route as AuthenticatedAuditNewRouteImport } from './routes/_authenticated/audit.new'
 import { Route as AuthenticatedAuditIdRouteImport } from './routes/_authenticated/audit.$id'
 
 const AuthRoute = AuthRouteImport.update({
@@ -58,6 +59,11 @@ const AuthenticatedActionsRoute = AuthenticatedActionsRouteImport.update({
   path: '/actions',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAuditNewRoute = AuthenticatedAuditNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AuthenticatedAuditRoute,
+} as any)
 const AuthenticatedAuditIdRoute = AuthenticatedAuditIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/audit/$id': typeof AuthenticatedAuditIdRoute
+  '/audit/new': typeof AuthenticatedAuditNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/audit/$id': typeof AuthenticatedAuditIdRoute
+  '/audit/new': typeof AuthenticatedAuditNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/audit/$id': typeof AuthenticatedAuditIdRoute
+  '/_authenticated/audit/new': typeof AuthenticatedAuditNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/audit/$id'
+    | '/audit/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/profile'
     | '/audit/$id'
+    | '/audit/new'
   id:
     | '__root__'
     | '/'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/profile'
     | '/_authenticated/audit/$id'
+    | '/_authenticated/audit/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -194,6 +206,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedActionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/audit/new': {
+      id: '/_authenticated/audit/new'
+      path: '/new'
+      fullPath: '/audit/new'
+      preLoaderRoute: typeof AuthenticatedAuditNewRouteImport
+      parentRoute: typeof AuthenticatedAuditRoute
+    }
     '/_authenticated/audit/$id': {
       id: '/_authenticated/audit/$id'
       path: '/$id'
@@ -206,10 +225,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAuditRouteChildren {
   AuthenticatedAuditIdRoute: typeof AuthenticatedAuditIdRoute
+  AuthenticatedAuditNewRoute: typeof AuthenticatedAuditNewRoute
 }
 
 const AuthenticatedAuditRouteChildren: AuthenticatedAuditRouteChildren = {
   AuthenticatedAuditIdRoute: AuthenticatedAuditIdRoute,
+  AuthenticatedAuditNewRoute: AuthenticatedAuditNewRoute,
 }
 
 const AuthenticatedAuditRouteWithChildren =

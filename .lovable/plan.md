@@ -1,65 +1,58 @@
-# Plateforme Yazaki MOTO — Plan MVP
+# Refonte YMK Vision — Plateforme MOTO Visual Management
 
-## Stack
-TanStack Start + React 19 + Tailwind v4 + Shadcn + Lucide + Recharts + Lovable Cloud (Supabase managé) + Lovable Emails.
+## Points à valider avant de démarrer
 
-## Étape 1 — Fondations
-- Activer Lovable Cloud.
-- Charte Yazaki dans `src/styles.css` : primaire rouge `#E60012` (oklch), OK vert, NG rouge, NA orange, neutres noir/gris, radius pro, ombres légères.
-- Logo Yazaki uploadé → Lovable Asset, réutilisé Header + Sidebar.
-- Layout global : Sidebar rétractable (shadcn Sidebar, `collapsible="icon"`) + Header avec logo + trigger hamburger.
+1. **MongoDB (§5)** — l'application tourne sur la base Lovable Cloud (PostgreSQL). Je ne migre pas vers MongoDB, mais je livre une **fonction d'export JSON** (Users, Audits, AuditEntries, ActionPlans, Lines, Areas, Pillars, Items, Workstations) en collections propres, directement importables dans MongoDB plus tard. Les données Excel sont déjà chargées (60 lignes, 15 zones, 4 piliers, 684 items, 7 483 associations poste↔item).
+2. **Comptes de test (§4)** — afficher des mots de passe en clair sur la page de connexion d'une plateforme industrielle est un risque. Je crée les 4 comptes et n'affiche le bloc "comptes de démonstration" **que sur l'environnement de préversion**, masqué sur le site publié. Dis-moi si tu veux qu'il soit visible partout.
+3. **Email (§2.C)** — l'envoi d'e-mails réels nécessite un domaine d'envoi qui t'appartient. En attendant, la clôture d'audit enregistre les notifications et je branche l'envoi réel dès le domaine configuré.
 
-## Étape 2 — Base de données (migrations)
-Tables (RLS + GRANT complets) :
-- `profiles` (id → auth.users, full_name, email, line_id, department)
-- `app_role` enum + `user_roles` + fonction `has_role` security-definer (jamais rôle sur profile)
-- `lines`, `pillars`, `areas` (zones), `departments`
-- `workstations` (line_id, code, name)
-- `audit_items` (pillar_id, area_id, code, description)
-- `audits` (line_name, audit_date, auditor_id, status open/closed, score cached, closed_at)
-- `audit_entries` (audit_id, item_id, workstation_id, status OK|NG|NA)
-- `ng_actions` (entry_id, area_id, department_id, issue_description, evidence_url, assigned_to, action_plan, due_date, evidence_correction_url, status Not started|On going|Close|In delay)
-- Bucket Storage `audit-evidence` (public read, upload auth).
+## 1. Navigation, branding, profil
 
-## Étape 3 — Seed depuis Excel
-- Parser les 2 fichiers XLSX uploadés (`EDS_MF...MVMS...xlsx` + `YMK_Moto_application_lines_data...xlsx`) côté sandbox pour extraire lignes, workstations, piliers, zones, items officiels YMK Kenitra.
-- Insérer via migration seed.
+- Sidebar "Accueil" : lien unique vers `/` si déconnecté, `/dashboard` si connecté (suppression de la logique `primaryRoute` qui provoque la boucle).
+- En-tête du sidebar : conteneur clair (fond blanc/carte, coins arrondis) derrière le logo Yazaki pour contraste maximal.
+- Profil : upload de photo (stockage privé `avatars`, URL signée), affichée dans l'en-tête et le menu déroulant ; repli sur les initiales.
+- En-tête : photo + nom complet + rôle traduit.
 
-## Étape 4 — Auth & rôles
-- `/auth` : login email/password + Google (broker Lovable).
-- Layout `_authenticated` (géré par intégration).
-- Redirection post-login selon rôle : admin → `/admin`, moto_responsible → `/audit`, action_responsible → `/actions`, department_manager → `/dashboard`.
-- Trigger `on_auth_user_created` → crée profil.
+## 2. Nouveau parcours d'audit
 
-## Étape 5 — Modules
-1. **Dashboard** (`/dashboard`) : KPI cards + Recharts (bar score/ligne, donut OK/NG/NA, line évolution).
-2. **Saisie Audit** (`/audit`) : filtres en-tête (ligne, date, pilier, zone), grille items × workstations, boutons `ALL / 1 / 1+`, statuts colorés, modal NG (zone, département, description, evidence upload OU capture caméra via `getUserMedia`), score temps réel, bouton "Close Audit" (>= 1 item) → verrouille + envoie rapport email.
-3. **Actions** (`/actions`) : liste NG filtrée, formulaire plan d'action + evidence + statut.
-4. **Admin** (`/admin`) : CRUD users/rôles, CRUD lignes/zones/items.
-5. **Profil** (`/profile`), Déconnexion.
+**Page de configuration (`/audit/new`)** : Ligne, Date, Auditeur (pré-rempli), Plant (YMK/YBEY), puis filtres en cascade Zone → Piliers → Postes. Aperçu du nombre d'items sélectionnés avant lancement.
 
-## Étape 6 — Emails
-- Scaffold Lovable Emails.
-- Template `audit-report` : HTML récap audit (score, NG list, evidence links).
-- Server route `/api/public/*` non requise ; envoi via `sendTemplateEmail` dans server function `closeAudit`.
-- Destinataires : auditeur + department manager de la ligne.
+**Grille d'audit (`/audit/$id`)** — reconstruite :
 
-## Étape 7 — SEO & finitions
-- `head()` par route (titres Yazaki), favicon.
-- Sitemap + robots.
-- Responsive terrain (tablette).
+```text
+                 | Poste A | Poste B | Poste C |  ALL
+5S / Item 12     |  OK     |  NG     |  NA     | [OK][NG][NA]
+5S / Item 13     |  OK     |  OK     |   -     | [OK][NG][NA]
+```
+
+- Lignes = items groupés par pilier puis catégorie ; colonnes = postes filtrés.
+- Cellules à 3 états (vert / rouge / orange), bouton ALL par ligne, surcharge individuelle possible.
+- Score de conformité recalculé en direct dans un bandeau collant.
+- Rendu adapté tablette (défilement horizontal, colonne d'items figée).
+
+**Clôture** : deux boutons — "Enregistrer (brouillon)" (audit reste `open`) et "Terminer et clôturer" (score figé, génération automatique d'un ticket d'action par NG, notification au Responsable Action).
+
+## 3. Incident NG et plans d'action
+
+- Formulaire NG déclenché à la sélection : Responsable Action, Zone/Ligne/Poste (pré-remplis), description, photo (import ou prise de vue), date de début, date limite.
+- Page "Plans d'action" opérationnelle : liste triée par urgence (retard → échéance proche), fiche détaillée de chaque NG, mise à jour du statut (Not Started / Ongoing / In Delay / Closed), photo de résolution, commentaires.
+- KPI par rôle : taux de clôture, retards, avancement.
+
+## 4. RBAC et validation des comptes
+
+- Nouvelle colonne `approved` sur les profils : toute inscription est en attente ; l'admin valide dans Administration. Les non-validés voient un écran "compte en attente".
+- Menu latéral et routes filtrés strictement par rôle (Admin / Moto Responsible / Responsable Action / Department Manager), avec redirection propre en cas d'accès non autorisé.
+- Admin : statistiques d'usage, création/modification d'utilisateurs, attribution de rôles, réinitialisation de mot de passe, validation des inscriptions.
+- Department Manager : supervision par responsable, zone et statut.
+
+## 5. Qualité technique
+
+- Error boundary par route (message clair + bouton "Réessayer") au lieu d'écran blanc.
+- Correction des types `null`/`undefined` (`email`, `full_name`, `assignee`).
+- Mise en page fluide tablette/PC.
 
 ## Détails techniques
-- Routes fichiers : `src/routes/dashboard.tsx`, `_authenticated/audit.tsx`, `_authenticated/audit.$id.tsx`, `_authenticated/actions.tsx`, `_authenticated/admin.tsx`, `_authenticated/profile.tsx`, `auth.tsx`, `index.tsx` (landing publique avec CTA).
-- Server functions : `createAudit`, `saveEntry`, `closeAudit`, `createNgAction`, `updateNgAction`, `uploadEvidence` (signed URL) — toutes sous `requireSupabaseAuth`.
-- Score calculé côté serveur au close + recalcul dynamique client pendant saisie.
-- Upload evidence : Supabase Storage direct depuis client avec session.
 
-## Livraison
-1. Enable Cloud → migrations schéma → seed Excel.
-2. Design system + layout + sidebar + auth.
-3. Modules audit + actions + dashboard + admin.
-4. Emails.
-5. Publish.
-
-Voulez-vous que je démarre ?
+- Migrations : `profiles.approved`, `profiles.avatar_url`, `ng_actions.start_date`, `ng_actions.resolution_comment`, `audits.plant`, `audits.area_id`, table `notifications`, bucket `avatars` — avec GRANT et RLS scopés.
+- Logique serveur privilégiée (création d'utilisateur, validation, génération du plan d'action à la clôture) via `createServerFn` avec vérification du rôle appelant.
+- Export MongoDB via une fonction serveur réservée à l'admin renvoyant un JSON par collection.
