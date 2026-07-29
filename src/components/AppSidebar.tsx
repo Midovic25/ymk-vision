@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 import logoAsset from "@/assets/yazaki_logo.png.asset.json";
 import { supabase } from "@/integrations/supabase/client";
-import { useCurrentUser, primaryRoute } from "@/hooks/use-current-user";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 type Item = {
   title: string;
