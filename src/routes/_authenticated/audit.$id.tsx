@@ -400,6 +400,11 @@ function AuditGrid() {
                         <tr key={it.id} className="hover:bg-muted/30">
                           <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-1.5 align-top">
                             <div className="font-medium">#{it.code}</div>
+                            {it.category && (
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-primary/80 max-w-[260px] truncate">
+                                {it.category}
+                              </div>
+                            )}
                             <div className="text-xs text-muted-foreground line-clamp-2 max-w-[260px]">
                               {it.description ?? "—"}
                             </div>
