@@ -33,6 +33,7 @@ function NewAuditPage() {
   const [plant, setPlant] = useState("YMK");
   const [lineId, setLineId] = useState("");
   const [areaId, setAreaId] = useState("");
+  const [pillar, setPillar] = useState("all");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
   const { data: lines } = useQuery({
@@ -98,7 +99,12 @@ function NewAuditPage() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (a) => navigate({ to: "/audit/$id", params: { id: a.id } }),
+    onSuccess: (a) =>
+      navigate({
+        to: "/audit/$id",
+        params: { id: a.id },
+        search: pillar === "all" ? {} : { pillar },
+      }),
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Création impossible"),
   });
@@ -189,6 +195,22 @@ function NewAuditPage() {
                 {areas.map((a) => (
                   <SelectItem key={a.id} value={a.id}>
                     {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Pilier MOTO à auditer</Label>
+            <Select value={pillar} onValueChange={setPillar} disabled={!lineId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tous les piliers" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="all">Tous les piliers</SelectItem>
+                {pillars.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
                   </SelectItem>
                 ))}
               </SelectContent>
