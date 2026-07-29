@@ -46,13 +46,13 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { roles, user } = useCurrentUser();
+  const { roles } = useCurrentUser();
   const isAdmin = roles.includes("admin");
-  const homeUrl = user ? primaryRoute(roles) : "/";
+  const homeUrl = "/";
 
   const isActive = (url: string, exact?: boolean) =>
     exact
-      ? pathname === url || (url === "/home" && pathname === homeUrl)
+      ? pathname === (url === "/home" ? homeUrl : url)
       : pathname === url || pathname.startsWith(url + "/");
 
   return (
