@@ -31,10 +31,14 @@ interface GridItem {
   id: string;
   code: number;
   description: string | null;
+  category: string | null;
   pillar: string;
 }
 
 export const Route = createFileRoute("/_authenticated/audit/$id")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    pillar: typeof s.pillar === "string" ? s.pillar : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Grille d'audit MOTO — Yazaki YMK" },
@@ -54,9 +58,10 @@ export const Route = createFileRoute("/_authenticated/audit/$id")({
 
 function AuditGrid() {
   const { id } = Route.useParams();
+  const { pillar: pillarParam } = Route.useSearch();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [pillarFilter, setPillarFilter] = useState<string>("all");
+  const [pillarFilter, setPillarFilter] = useState<string>(pillarParam ?? "all");
   const [ngDialog, setNgDialog] = useState<{
     entryIds: string[];
     item: GridItem;
@@ -102,7 +107,7 @@ function AuditGrid() {
       const wsIds = workstations!.map((w) => w.id);
       const { data, error } = await supabase
         .from("workstation_items")
-        .select("workstation_id, audit_items(id, code, description, pillars(name))")
+        .select("workstation_id, audit_items(id, code, description, category, pillars(name))")
         .in("workstation_id", wsIds);
       if (error) throw error;
       const items = new Map<string, GridItem>();
@@ -112,6 +117,7 @@ function AuditGrid() {
           id: string;
           code: number;
           description: string | null;
+          category: string | null;
           pillars: { name: string } | null;
         } | null;
         if (!it) continue;
@@ -119,6 +125,7 @@ function AuditGrid() {
           id: it.id,
           code: it.code,
           description: it.description,
+          category: it.category,
           pillar: it.pillars?.name ?? "Autres",
         });
         pairs.add(`${row.workstation_id}:${it.id}`);
