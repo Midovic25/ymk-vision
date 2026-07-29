@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus } from "lucide-react";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/_authenticated/audit")({
+export const Route = createFileRoute("/_authenticated/audit/")({
   head: () => ({
     meta: [
       { title: "Audits MOTO — Yazaki YMK" },

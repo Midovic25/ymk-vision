@@ -80,18 +80,21 @@ export type Database = {
       }
       audit_items: {
         Row: {
+          category: string | null
           code: number
           description: string | null
           id: string
           pillar_id: string | null
         }
         Insert: {
+          category?: string | null
           code: number
           description?: string | null
           id?: string
           pillar_id?: string | null
         }
         Update: {
+          category?: string | null
           code?: number
           description?: string | null
           id?: string

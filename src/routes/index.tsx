@@ -1,5 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   ClipboardCheck,
@@ -32,14 +31,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
-  const { user, roles, loading } = useCurrentUser();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && user) {
-      navigate({ to: primaryRoute(roles) });
-    }
-  }, [loading, user, roles, navigate]);
+  const { user, roles } = useCurrentUser();
+  const target = user ? primaryRoute(roles) : "/auth";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -55,7 +48,7 @@ function Landing() {
             </div>
           </div>
           <Button asChild variant="default">
-            <Link to="/auth">Se connecter</Link>
+            <Link to={target}>{user ? "Accéder à la plateforme" : "Se connecter"}</Link>
           </Button>
         </div>
       </header>
@@ -76,7 +69,7 @@ function Landing() {
             </p>
             <div className="mt-8 flex gap-3">
               <Button size="lg" asChild>
-                <Link to="/auth">
+                <Link to={target}>
                   Accéder à la plateforme <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
