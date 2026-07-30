@@ -94,6 +94,20 @@ export function useCurrentUser(): CurrentUser {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setRoles([]);
+        setProfile(null);
+        setAvatarSrc(null);
+        if (
+          typeof window !== "undefined" &&
+          !window.location.pathname.startsWith("/auth") &&
+          window.location.pathname !== "/"
+        ) {
+          window.location.href = "/auth";
+        }
+        return;
+      }
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       setUser(session?.user ?? null);
       void load(session?.user ?? null);
