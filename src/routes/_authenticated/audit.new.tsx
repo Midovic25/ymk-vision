@@ -16,6 +16,8 @@ import {
 import { toast } from "sonner";
 import { ClipboardList, ArrowLeft } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { routeErrorComponent } from "@/components/RouteErrorBoundary";
+import { RoleGate } from "@/hooks/use-role-guard";
 
 export const Route = createFileRoute("/_authenticated/audit/new")({
   head: () => ({
@@ -24,7 +26,12 @@ export const Route = createFileRoute("/_authenticated/audit/new")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: NewAuditPage,
+  errorComponent: routeErrorComponent("Configuration d'audit indisponible"),
+  component: () => (
+    <RoleGate allowed={["admin", "moto_responsible"]}>
+      <NewAuditPage />
+    </RoleGate>
+  ),
 });
 
 function NewAuditPage() {
