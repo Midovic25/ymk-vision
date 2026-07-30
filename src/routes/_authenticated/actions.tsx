@@ -26,6 +26,9 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { actionUpdateSchema, fieldErrors } from "@/lib/validation";
+import { routeErrorComponent } from "@/components/RouteErrorBoundary";
+import { RoleGate } from "@/hooks/use-role-guard";
 
 type ActionStatus = "Not started" | "On going" | "Close" | "In delay";
 
@@ -50,15 +53,14 @@ export const Route = createFileRoute("/_authenticated/actions")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  errorComponent: () => (
-    <div className="p-8 text-center">
-      <h2 className="text-lg font-bold">Plans d'action indisponibles</h2>
-      <p className="text-sm text-muted-foreground mt-1">
-        Les données n'ont pas pu être chargées. Réessayez dans un instant.
-      </p>
-    </div>
+  errorComponent: routeErrorComponent("Plans d'action indisponibles"),
+  component: () => (
+    <RoleGate
+      allowed={["admin", "action_responsible", "department_manager", "moto_responsible"]}
+    >
+      <ActionsPage />
+    </RoleGate>
   ),
-  component: ActionsPage,
 });
 
 interface ActionRow {
@@ -218,9 +220,16 @@ function ActionsPage() {
                   <div className="flex gap-2 items-center">
                     <Select
                       value={a.status}
-                      onValueChange={(v) =>
-                        updateStatus.mutate({ id: a.id, status: v as ActionStatus })
-                      }
+                      onValueChange={(v) => {
+                        if (v === "Close") {
+                          toast.info(
+                            "La clôture exige un commentaire et une photo de preuve : ouvrez le rapport NG.",
+                          );
+                          setEditing(a);
+                          return;
+                        }
+                        updateStatus.mutate({ id: a.id, status: v as ActionStatus });
+                      }}
                     >
                       <SelectTrigger className="w-40">
                         <SelectValue />
@@ -319,6 +328,7 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [evidenceSrc, setEvidenceSrc] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!action) return;
@@ -328,6 +338,7 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
     setStatus(action.status as ActionStatus);
     setFile(null);
     setEvidenceSrc(null);
+    setFormErrors({});
     if (action.evidence_url) {
       void supabase.storage
         .from("audit-evidence")
@@ -340,6 +351,21 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
 
   async function save() {
     if (!action) return;
+    const parsed = actionUpdateSchema.safeParse({
+      status,
+      actionPlan: plan,
+      resolutionComment: comment,
+      dueDate: dueDate || "",
+      existingClosingEvidence: action.evidence_correction_url,
+      closingEvidence: file,
+    });
+    if (!parsed.success) {
+      const errs = fieldErrors(parsed.error);
+      setFormErrors(errs);
+      toast.error(Object.values(errs)[0] ?? "Données invalides.");
+      return;
+    }
+    setFormErrors({});
     setBusy(true);
     try {
       let evidence_correction_url = action.evidence_correction_url;
@@ -411,6 +437,11 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
           <div>
             <Label>Commentaire de réalisation</Label>
             <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} />
+            {formErrors.resolutionComment && (
+              <p className="mt-1 text-xs font-medium text-destructive">
+                {formErrors.resolutionComment}
+              </p>
+            )}
           </div>
           <div>
             <Label>Échéance</Label>
@@ -421,13 +452,26 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
             />
           </div>
           <div>
-            <Label>Preuve après correction</Label>
+            <Label>
+              Preuve après correction
+              {status === "Close" && <span className="text-destructive"> *</span>}
+            </Label>
             <Input
               type="file"
               accept="image/*"
               capture="environment"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
+            {action.evidence_correction_url && !file && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Une preuve de correction est déjà enregistrée.
+              </p>
+            )}
+            {formErrors.closingEvidence && (
+              <p className="mt-1 text-xs font-medium text-destructive">
+                {formErrors.closingEvidence}
+              </p>
+            )}
           </div>
         </div>
         <DialogFooter>

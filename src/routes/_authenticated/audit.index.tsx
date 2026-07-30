@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus } from "lucide-react";
 import { format } from "date-fns";
+import { routeErrorComponent } from "@/components/RouteErrorBoundary";
+import { RoleGate } from "@/hooks/use-role-guard";
 
 export const Route = createFileRoute("/_authenticated/audit/")({
   head: () => ({
@@ -15,7 +17,12 @@ export const Route = createFileRoute("/_authenticated/audit/")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: AuditList,
+  errorComponent: routeErrorComponent("Liste des audits indisponible"),
+  component: () => (
+    <RoleGate allowed={["admin", "moto_responsible", "department_manager"]}>
+      <AuditList />
+    </RoleGate>
+  ),
 });
 
 function AuditList() {

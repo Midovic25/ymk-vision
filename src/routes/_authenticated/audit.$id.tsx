@@ -24,6 +24,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Camera, Check, Lock, Minus, Save, X } from "lucide-react";
+import { routeErrorComponent } from "@/components/RouteErrorBoundary";
+import { RoleGate } from "@/hooks/use-role-guard";
 
 type Status = "OK" | "NG" | "NA";
 
@@ -45,15 +47,12 @@ export const Route = createFileRoute("/_authenticated/audit/$id")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  errorComponent: () => (
-    <div className="p-8 text-center">
-      <h2 className="text-lg font-bold">Audit indisponible</h2>
-      <p className="text-sm text-muted-foreground mt-1">
-        Impossible de charger cet audit. Vérifiez votre connexion ou vos droits d'accès.
-      </p>
-    </div>
+  errorComponent: routeErrorComponent("Audit indisponible"),
+  component: () => (
+    <RoleGate allowed={["admin", "moto_responsible"]}>
+      <AuditGrid />
+    </RoleGate>
   ),
-  component: AuditGrid,
 });
 
 function AuditGrid() {
