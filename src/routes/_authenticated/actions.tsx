@@ -220,9 +220,16 @@ function ActionsPage() {
                   <div className="flex gap-2 items-center">
                     <Select
                       value={a.status}
-                      onValueChange={(v) =>
-                        updateStatus.mutate({ id: a.id, status: v as ActionStatus })
-                      }
+                      onValueChange={(v) => {
+                        if (v === "Close") {
+                          toast.info(
+                            "La clôture exige un commentaire et une photo de preuve : ouvrez le rapport NG.",
+                          );
+                          setEditing(a);
+                          return;
+                        }
+                        updateStatus.mutate({ id: a.id, status: v as ActionStatus });
+                      }}
                     >
                       <SelectTrigger className="w-40">
                         <SelectValue />
@@ -342,6 +349,21 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
 
   async function save() {
     if (!action) return;
+    const parsed = actionUpdateSchema.safeParse({
+      status,
+      actionPlan: plan,
+      resolutionComment: comment,
+      dueDate: dueDate || "",
+      existingClosingEvidence: action.evidence_correction_url,
+      closingEvidence: file,
+    });
+    if (!parsed.success) {
+      const errs = fieldErrors(parsed.error);
+      setFormErrors(errs);
+      toast.error(Object.values(errs)[0] ?? "Données invalides.");
+      return;
+    }
+    setFormErrors({});
     setBusy(true);
     try {
       let evidence_correction_url = action.evidence_correction_url;
