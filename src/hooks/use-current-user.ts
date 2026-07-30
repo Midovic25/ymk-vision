@@ -108,7 +108,7 @@ export function useCurrentUser(): CurrentUser {
         }
         return;
       }
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      if (event !== "SIGNED_IN" && event !== "USER_UPDATED") return;
       setUser(session?.user ?? null);
       void load(session?.user ?? null);
     });
