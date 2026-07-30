@@ -328,6 +328,7 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [evidenceSrc, setEvidenceSrc] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!action) return;
@@ -337,6 +338,7 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
     setStatus(action.status as ActionStatus);
     setFile(null);
     setEvidenceSrc(null);
+    setFormErrors({});
     if (action.evidence_url) {
       void supabase.storage
         .from("audit-evidence")
@@ -435,6 +437,11 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
           <div>
             <Label>Commentaire de réalisation</Label>
             <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} />
+            {formErrors.resolutionComment && (
+              <p className="mt-1 text-xs font-medium text-destructive">
+                {formErrors.resolutionComment}
+              </p>
+            )}
           </div>
           <div>
             <Label>Échéance</Label>
@@ -445,13 +452,26 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
             />
           </div>
           <div>
-            <Label>Preuve après correction</Label>
+            <Label>
+              Preuve après correction
+              {status === "Close" && <span className="text-destructive"> *</span>}
+            </Label>
             <Input
               type="file"
               accept="image/*"
               capture="environment"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
+            {action.evidence_correction_url && !file && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Une preuve de correction est déjà enregistrée.
+              </p>
+            )}
+            {formErrors.closingEvidence && (
+              <p className="mt-1 text-xs font-medium text-destructive">
+                {formErrors.closingEvidence}
+              </p>
+            )}
           </div>
         </div>
         <DialogFooter>
