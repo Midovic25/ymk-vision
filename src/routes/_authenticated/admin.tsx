@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { routeErrorComponent } from "@/components/RouteErrorBoundary";
+import { RoleGate } from "@/hooks/use-role-guard";
 
 type Role = "admin" | "moto_responsible" | "action_responsible" | "department_manager";
 
@@ -20,7 +22,12 @@ export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [{ title: "Administration — Yazaki MOTO" }, { name: "robots", content: "noindex" }],
   }),
-  component: AdminPage,
+  errorComponent: routeErrorComponent("Administration indisponible"),
+  component: () => (
+    <RoleGate allowed={["admin"]}>
+      <AdminPage />
+    </RoleGate>
+  ),
 });
 
 function AdminPage() {
