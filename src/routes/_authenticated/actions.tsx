@@ -26,6 +26,9 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { actionUpdateSchema, fieldErrors } from "@/lib/validation";
+import { routeErrorComponent } from "@/components/RouteErrorBoundary";
+import { RoleGate } from "@/hooks/use-role-guard";
 
 type ActionStatus = "Not started" | "On going" | "Close" | "In delay";
 
@@ -50,15 +53,14 @@ export const Route = createFileRoute("/_authenticated/actions")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  errorComponent: () => (
-    <div className="p-8 text-center">
-      <h2 className="text-lg font-bold">Plans d'action indisponibles</h2>
-      <p className="text-sm text-muted-foreground mt-1">
-        Les données n'ont pas pu être chargées. Réessayez dans un instant.
-      </p>
-    </div>
+  errorComponent: routeErrorComponent("Plans d'action indisponibles"),
+  component: () => (
+    <RoleGate
+      allowed={["admin", "action_responsible", "department_manager", "moto_responsible"]}
+    >
+      <ActionsPage />
+    </RoleGate>
   ),
-  component: ActionsPage,
 });
 
 interface ActionRow {
