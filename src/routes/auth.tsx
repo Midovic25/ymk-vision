@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,15 @@ import { lovable } from "@/integrations/lovable";
 import { toast } from "sonner";
 import logoAsset from "@/assets/yazaki_logo.png.asset.json";
 import { useCurrentUser, primaryRoute } from "@/hooks/use-current-user";
+import {
+  ALLOWED_EMAIL_DOMAINS,
+  fieldErrors,
+  passwordChecklist,
+  signInSchema,
+  signUpSchema,
+} from "@/lib/validation";
+import { Check, X } from "lucide-react";
+import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -20,6 +29,7 @@ export const Route = createFileRoute("/auth")({
     ],
   }),
   component: AuthPage,
+  errorComponent: routeErrorComponent("Page de connexion indisponible"),
 });
 
 function AuthPage() {
@@ -28,7 +38,12 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+
+  const checklist = useMemo(() => passwordChecklist(password), [password]);
+  const domainHint = ALLOWED_EMAIL_DOMAINS.map((d) => `@${d}`).join(" · ");
 
   useEffect(() => {
     if (!loading && user) navigate({ to: primaryRoute(roles) });
@@ -36,22 +51,44 @@ function AuthPage() {
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
+    const parsed = signInSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setErrors(fieldErrors(parsed.error));
+      return;
+    }
+    setErrors({});
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: parsed.data.email,
+      password: parsed.data.password,
+    });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      // Generic message: never disclose whether the account exists.
+      return toast.error("Identifiants invalides ou compte non autorisé.");
+    }
     toast.success("Connecté");
   }
 
   async function signUp(e: React.FormEvent) {
     e.preventDefault();
+    const parsed = signUpSchema.safeParse({ email, password, fullName, department });
+    if (!parsed.success) {
+      setErrors(fieldErrors(parsed.error));
+      toast.error("Veuillez corriger les champs signalés.");
+      return;
+    }
+    setErrors({});
     setBusy(true);
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
+      email: parsed.data.email,
+      password: parsed.data.password,
       options: {
         emailRedirectTo: window.location.origin,
-        data: { full_name: fullName },
+        data: {
+          full_name: parsed.data.fullName,
+          department: parsed.data.department || null,
+        },
       },
     });
     setBusy(false);
@@ -88,22 +125,27 @@ function AuthPage() {
               <TabsContent value="signin">
                 <form onSubmit={signIn} className="space-y-3 pt-4">
                   <div>
-                    <Label>Email</Label>
+                    <Label>Email professionnel</Label>
                     <Input
                       type="email"
+                      autoComplete="username"
+                      placeholder={`prenom.nom${ALLOWED_EMAIL_DOMAINS[0] ? `@${ALLOWED_EMAIL_DOMAINS[0]}` : ""}`}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
                     />
+                    <FieldError message={errors.email} />
                   </div>
                   <div>
                     <Label>Mot de passe</Label>
                     <Input
                       type="password"
+                      autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                     />
+                    <FieldError message={errors.password} />
                   </div>
                   <Button type="submit" className="w-full" disabled={busy}>
                     Se connecter
@@ -119,26 +161,64 @@ function AuthPage() {
                       onChange={(e) => setFullName(e.target.value)}
                       required
                     />
+                    <FieldError message={errors.fullName} />
                   </div>
                   <div>
-                    <Label>Email</Label>
+                    <Label>Département (optionnel)</Label>
+                    <Input
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      placeholder="Production, Qualité, Maintenance…"
+                    />
+                    <FieldError message={errors.department} />
+                  </div>
+                  <div>
+                    <Label>Email professionnel</Label>
                     <Input
                       type="email"
+                      autoComplete="username"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
                     />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Domaines autorisés : {domainHint}
+                    </p>
+                    <FieldError message={errors.email} />
                   </div>
                   <div>
                     <Label>Mot de passe</Label>
                     <Input
                       type="password"
+                      autoComplete="new-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      minLength={6}
+                      minLength={12}
                     />
+                    <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                      {checklist.map((r) => (
+                        <li
+                          key={r.id}
+                          className={`flex items-center gap-1 text-[11px] ${
+                            r.passed ? "text-[var(--status-ok)]" : "text-muted-foreground"
+                          }`}
+                        >
+                          {r.passed ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <X className="h-3 w-3" />
+                          )}
+                          {r.label}
+                        </li>
+                      ))}
+                    </ul>
+                    <FieldError message={errors.password} />
                   </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Toute inscription est soumise à la validation d'un administrateur avant
+                    l'attribution d'un rôle et l'accès aux données de production.
+                  </p>
                   <Button type="submit" className="w-full" disabled={busy}>
                     Créer un compte
                   </Button>
@@ -176,4 +256,9 @@ function AuthPage() {
       </div>
     </div>
   );
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="mt-1 text-xs font-medium text-destructive">{message}</p>;
 }
