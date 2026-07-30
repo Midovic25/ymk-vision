@@ -18,6 +18,8 @@ import {
   Legend,
 } from "recharts";
 import { ClipboardList, AlertTriangle, CheckCircle2, TrendingUp } from "lucide-react";
+import { routeErrorComponent } from "@/components/RouteErrorBoundary";
+import { RoleGate } from "@/hooks/use-role-guard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -27,7 +29,12 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: Dashboard,
+  errorComponent: routeErrorComponent("Tableau de bord indisponible"),
+  component: () => (
+    <RoleGate allowed={["admin", "department_manager", "moto_responsible"]}>
+      <Dashboard />
+    </RoleGate>
+  ),
 });
 
 function Dashboard() {
