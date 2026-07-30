@@ -10,11 +10,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useCurrentUser, roleLabel, initialsOf } from "@/hooks/use-current-user";
 import { Camera } from "lucide-react";
+import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
     meta: [{ title: "Mon profil — Yazaki MOTO" }, { name: "robots", content: "noindex" }],
   }),
+  errorComponent: routeErrorComponent("Profil indisponible"),
   component: ProfilePage,
 });
 
