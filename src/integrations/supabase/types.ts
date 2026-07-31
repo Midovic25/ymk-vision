@@ -456,6 +456,7 @@ export type Database = {
         Returns: boolean
       }
       is_action_responsible: { Args: { _user_id: string }; Returns: boolean }
+      is_approved: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       action_status: "Not started" | "On going" | "Close" | "In delay"
