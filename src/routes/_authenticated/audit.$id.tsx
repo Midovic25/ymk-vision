@@ -754,12 +754,22 @@ function NgDialog({
               <SelectContent>
                 {(responsibles ?? []).map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.full_name ?? p.email}
+                    {p.full_name ?? normalizeCorporateEmail(p.email)}
                     {p.department ? ` — ${p.department}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {assignedTo && (
+              <div className="mt-1 text-xs text-muted-foreground">
+                Contact :{" "}
+                <span className="font-semibold text-foreground">
+                  {normalizeCorporateEmail(
+                    (responsibles ?? []).find((p) => p.id === assignedTo)?.email,
+                  ) || "—"}
+                </span>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
