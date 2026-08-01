@@ -21,11 +21,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Camera, Check, Lock, Minus, Save, X } from "lucide-react";
 import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 import { RoleGate } from "@/hooks/use-role-guard";
+import { normalizeCorporateEmail } from "@/lib/validation";
 
 type Status = "OK" | "NG" | "NA";
 
@@ -61,6 +63,8 @@ function AuditGrid() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [pillarFilter, setPillarFilter] = useState<string>(pillarParam ?? "all");
+  /** `null` = tous les postes de la ligne (bouton « Sélectionner tout »). */
+  const [selectedWs, setSelectedWs] = useState<string[] | null>(null);
   const [ngDialog, setNgDialog] = useState<{
     entryIds: string[];
     item: GridItem;
