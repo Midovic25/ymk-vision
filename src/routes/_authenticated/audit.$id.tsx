@@ -173,6 +173,19 @@ function AuditGrid() {
 
   const closed = audit?.status === "closed";
 
+  const allWs = useMemo(() => workstations ?? [], [workstations]);
+  const visibleWs = useMemo(
+    () => (selectedWs === null ? allWs : allWs.filter((w) => selectedWs.includes(w.id))),
+    [allWs, selectedWs],
+  );
+  const allSelected = selectedWs === null || selectedWs.length === allWs.length;
+
+  function toggleWs(wsId: string, checked: boolean) {
+    const base = selectedWs === null ? allWs.map((w) => w.id) : selectedWs;
+    const next = checked ? [...new Set([...base, wsId])] : base.filter((x) => x !== wsId);
+    setSelectedWs(next);
+  }
+
   const setStatus = useMutation({
     mutationFn: async (p: { cells: Array<{ wsId: string; itemId: string }>; status: Status }) => {
       const created: string[] = [];
