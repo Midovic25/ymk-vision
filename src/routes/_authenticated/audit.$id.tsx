@@ -266,22 +266,40 @@ function AuditGrid() {
           );
           if (error) throw error;
         }
-        // 2. Notification des responsables d'action assignés
+        // 2. Notification groupée : un seul e-mail par responsable d'action,
+        //    contenant la liste complète des check points qui lui sont assignés.
         const { data: assigned } = await supabase
           .from("ng_actions")
-          .select("id, assigned_to, issue_description, due_date")
+          .select("id, assigned_to, issue_description, due_date, priority")
           .in("entry_id", ngEntryIds)
           .not("assigned_to", "is", null);
-        const notif = (assigned ?? [])
-          .filter((a) => a.assigned_to)
-          .map((a) => ({
-            user_id: a.assigned_to as string,
-            action_id: a.id,
-            subject: "Nouvelle action corrective MOTO assignée",
-            body: `Non-conformité : ${a.issue_description}\nÉchéance : ${
-              a.due_date ?? "à définir"
-            }`,
-          }));
+
+        const byResponsible = new Map<string, typeof assigned>();
+        for (const a of assigned ?? []) {
+          if (!a.assigned_to) continue;
+          const arr = byResponsible.get(a.assigned_to) ?? [];
+          arr.push(a);
+          byResponsible.set(a.assigned_to, arr);
+        }
+
+        const notif = Array.from(byResponsible, ([userId, list]) => ({
+          user_id: userId,
+          action_id: list[0]?.id ?? null,
+          subject: `Plan d'action MOTO — ${list.length} check point(s) à traiter`,
+          body: [
+            `Suite à la clôture de l'audit MOTO du ${audit?.audit_date ?? ""} sur la ligne ${lineName},`,
+            `${list.length} non-conformité(s) vous sont assignées :`,
+            "",
+            ...list.map(
+              (a, i) =>
+                `${i + 1}. ${a.issue_description} — priorité ${a.priority ?? "normale"} — échéance ${
+                  a.due_date ?? "à définir"
+                }`,
+            ),
+            "",
+            "Merci de renseigner le plan d'action, la preuve photo et le statut sur la plateforme.",
+          ].join("\n"),
+        }));
         if (notif.length) await supabase.from("notifications").insert(notif);
       }
 
