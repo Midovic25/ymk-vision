@@ -373,7 +373,49 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Items de contrôle × Postes de travail ({workstations?.length ?? 0} postes)
+            Postes de travail de la ligne ({visibleWs.length}/{allWs.length} sélectionnés)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={allSelected ? "default" : "outline"}
+              disabled={closed}
+              onClick={() => setSelectedWs(allSelected ? [] : null)}
+            >
+              {allSelected ? "Tout désélectionner" : "Sélectionner tout"}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Après « Sélectionner tout », vous pouvez décocher individuellement les postes
+              non concernés.
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {allWs.map((w) => {
+              const checked = selectedWs === null || selectedWs.includes(w.id);
+              return (
+                <label key={w.id} className="flex items-center gap-2 text-xs">
+                  <Checkbox
+                    checked={checked}
+                    disabled={closed}
+                    onCheckedChange={(v) => toggleWs(w.id, v === true)}
+                  />
+                  {w.name}
+                </label>
+              );
+            })}
+            {allWs.length === 0 && (
+              <span className="text-xs text-muted-foreground">Aucun poste sur ce périmètre.</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Items de contrôle × Postes de travail ({visibleWs.length} postes)
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -387,7 +429,10 @@ function AuditGrid() {
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
                     ALL
                   </th>
-                  {workstations?.map((w) => (
+                  <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
+                    Score
+                  </th>
+                  {visibleWs.map((w) => (
                     <th
                       key={w.id}
                       className="bg-card border-b border-r px-2 py-2 text-[11px] font-semibold whitespace-nowrap"
@@ -402,16 +447,23 @@ function AuditGrid() {
                   <Fragment key={group.pillar}>
                     <tr>
                       <td
-                        colSpan={(workstations?.length ?? 0) + 2}
+                        colSpan={visibleWs.length + 3}
                         className="bg-muted/60 border-b px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
                       >
                         Pilier · {group.pillar}
                       </td>
                     </tr>
                     {group.items.map((it) => {
-                      const applicable = (workstations ?? []).filter((w) =>
+                      const applicable = visibleWs.filter((w) =>
                         mapping?.pairs.has(`${w.id}:${it.id}`),
                       );
+                      const evaluatedCells = applicable
+                        .map((w) => entries?.get(`${w.id}:${it.id}`)?.status)
+                        .filter((s): s is Status => s === "OK" || s === "NG");
+                      const okCount = evaluatedCells.filter((s) => s === "OK").length;
+                      const itemScore = applicable.length
+                        ? Math.round((okCount / applicable.length) * 100)
+                        : 0;
                       return (
                         <tr key={it.id} className="hover:bg-muted/30">
                           <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-1.5 align-top">
@@ -446,7 +498,13 @@ function AuditGrid() {
                               ))}
                             </div>
                           </td>
-                          {workstations?.map((w) => {
+                          <td className="border-b border-r px-2 py-1.5 text-center">
+                            <div className="text-sm font-bold">{itemScore}%</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {okCount}/{applicable.length}
+                            </div>
+                          </td>
+                          {visibleWs.map((w) => {
                             const ok = mapping?.pairs.has(`${w.id}:${it.id}`);
                             const current = entries?.get(`${w.id}:${it.id}`);
                             return (
