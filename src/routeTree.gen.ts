@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedMyActionsRouteImport } from './routes/_authenticated/my-actions'
 import { Route as AuthenticatedDepartmentRouteImport } from './routes/_authenticated/department'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -38,6 +39,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMyActionsRoute = AuthenticatedMyActionsRouteImport.update({
+  id: '/my-actions',
+  path: '/my-actions',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDepartmentRoute = AuthenticatedDepartmentRouteImport.update({
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/department': typeof AuthenticatedDepartmentRoute
+  '/my-actions': typeof AuthenticatedMyActionsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/audit/$id': typeof AuthenticatedAuditIdRoute
   '/audit/new': typeof AuthenticatedAuditNewRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/department': typeof AuthenticatedDepartmentRoute
+  '/my-actions': typeof AuthenticatedMyActionsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/audit/$id': typeof AuthenticatedAuditIdRoute
   '/audit/new': typeof AuthenticatedAuditNewRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/department': typeof AuthenticatedDepartmentRoute
+  '/_authenticated/my-actions': typeof AuthenticatedMyActionsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/audit/$id': typeof AuthenticatedAuditIdRoute
   '/_authenticated/audit/new': typeof AuthenticatedAuditNewRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/department'
+    | '/my-actions'
     | '/profile'
     | '/audit/$id'
     | '/audit/new'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/department'
+    | '/my-actions'
     | '/profile'
     | '/audit/$id'
     | '/audit/new'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/_authenticated/department'
+    | '/_authenticated/my-actions'
     | '/_authenticated/profile'
     | '/_authenticated/audit/$id'
     | '/_authenticated/audit/new'
@@ -188,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-actions': {
+      id: '/_authenticated/my-actions'
+      path: '/my-actions'
+      fullPath: '/my-actions'
+      preLoaderRoute: typeof AuthenticatedMyActionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/department': {
@@ -247,6 +266,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDepartmentRoute: typeof AuthenticatedDepartmentRoute
+  AuthenticatedMyActionsRoute: typeof AuthenticatedMyActionsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedAuditIdRoute: typeof AuthenticatedAuditIdRoute
   AuthenticatedAuditNewRoute: typeof AuthenticatedAuditNewRoute
@@ -258,6 +278,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDepartmentRoute: AuthenticatedDepartmentRoute,
+  AuthenticatedMyActionsRoute: AuthenticatedMyActionsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedAuditIdRoute: AuthenticatedAuditIdRoute,
   AuthenticatedAuditNewRoute: AuthenticatedAuditNewRoute,
