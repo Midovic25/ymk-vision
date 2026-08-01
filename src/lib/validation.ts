@@ -8,7 +8,20 @@ import { ACTION_STATUSES, ENTRY_STATUSES, PLANTS, PRIORITIES } from "@/types/dom
 /* ------------------------- Corporate email policy ---------------------- */
 
 const RAW_DOMAINS =
-  (import.meta.env.VITE_ALLOWED_EMAIL_DOMAINS as string | undefined) ?? "yazaki.com";
+  (import.meta.env.VITE_ALLOWED_EMAIL_DOMAINS as string | undefined) ??
+  "yazaki-europe.com";
+
+/** Domaine de messagerie officiel du groupe. */
+export const CORPORATE_EMAIL_DOMAIN = "yazaki-europe.com";
+
+/**
+ * Normalise une adresse historique `@yazaki.com` vers le domaine officiel
+ * `@yazaki-europe.com` pour l'affichage et les envois automatiques.
+ */
+export function normalizeCorporateEmail(email?: string | null): string {
+  if (!email) return "";
+  return email.trim().replace(/@yazaki\.com$/i, `@${CORPORATE_EMAIL_DOMAIN}`);
+}
 
 export const ALLOWED_EMAIL_DOMAINS: readonly string[] = RAW_DOMAINS.split(",")
   .map((d) => d.trim().toLowerCase())
