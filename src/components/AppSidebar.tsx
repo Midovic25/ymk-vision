@@ -63,14 +63,22 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-3">
-          <div className="shrink-0 rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-black/5">
-            <img
-              src={logoAsset.url}
-              alt="Yazaki"
-              className={collapsed ? "h-7 w-auto object-contain" : "h-9 w-auto object-contain"}
-            />
-          </div>
+        <div
+          className={
+            collapsed
+              ? "flex items-center justify-center px-1 py-3"
+              : "flex items-center gap-2 px-2 py-3"
+          }
+        >
+          {collapsed ? (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-black/5">
+              <img src={markAsset.url} alt="Yazaki" className="h-4 w-auto object-contain" />
+            </div>
+          ) : (
+            <div className="shrink-0 rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-black/5">
+              <img src={logoAsset.url} alt="Yazaki" className="h-9 w-auto object-contain" />
+            </div>
+          )}
           {!collapsed && (
             <div className="leading-tight">
               <div className="text-sm font-bold text-sidebar-foreground tracking-wide">YAZAKI</div>
