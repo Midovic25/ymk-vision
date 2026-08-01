@@ -15,6 +15,22 @@ import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 import { RoleGate } from "@/hooks/use-role-guard";
+import { useServerFn } from "@tanstack/react-start";
+import { deleteUserAccount } from "@/lib/admin.functions";
+import { normalizeCorporateEmail } from "@/lib/validation";
+import { ROLE_LABEL_FR } from "@/types/domain";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { CheckCircle2, Ban, Trash2 } from "lucide-react";
 
 type Role = "admin" | "moto_responsible" | "action_responsible" | "department_manager";
 
@@ -31,12 +47,14 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 function AdminPage() {
-  const { roles, loading } = useCurrentUser();
+  const { roles, loading, user } = useCurrentUser();
   const qc = useQueryClient();
+  const removeAccount = useServerFn(deleteUserAccount);
 
   const { data: users } = useQuery({
     queryKey: ["admin-users"],
     enabled: roles.includes("admin"),
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data: profiles } = await supabase
         .from("profiles")
@@ -92,12 +110,22 @@ function AdminPage() {
         .eq("id", p.userId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_d, p) => {
       qc.invalidateQueries({ queryKey: ["admin-users"] });
-      toast.success("Statut du compte mis à jour");
+      toast.success(p.approved ? "Compte validé" : "Compte suspendu — accès bloqué");
     },
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Mise à jour impossible"),
+  });
+
+  const removeUser = useMutation({
+    mutationFn: async (userId: string) => removeAccount({ data: { userId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      toast.success("Compte supprimé définitivement");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Suppression impossible"),
   });
 
   if (loading) return <div className="p-8">Chargement…</div>;
