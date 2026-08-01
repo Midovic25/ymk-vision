@@ -166,7 +166,10 @@ function NewAuditPage() {
       navigate({
         to: "/audit/$id",
         params: { id: a.id },
-        search: pillar === "all" ? {} : { pillar },
+        search: {
+          ...(pillar === "all" ? {} : { pillar }),
+          ...(checkPoint === "all" ? {} : { item: checkPoint }),
+        },
       }),
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Création impossible"),
@@ -224,33 +227,44 @@ function NewAuditPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Périmètre hiérarchique</CardTitle>
+          <CardTitle>Filtres en cascade — périmètre hiérarchique</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label>Ligne de production *</Label>
+            <Label>1 · Catégorie (Process Group)</Label>
             <Select
-              value={lineId}
+              value={category}
               onValueChange={(v) => {
-                setLineId(v);
+                setCategory(v);
                 setAreaId("");
+                setLineId("");
+                setCheckPoint("all");
+                setPillar("all");
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Choisir une ligne…" />
+                <SelectValue placeholder="Choisir une catégorie…" />
               </SelectTrigger>
               <SelectContent className="max-h-72">
-                {lines?.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.name}
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label>Secteur / Zone (Area)</Label>
-            <Select value={areaId} onValueChange={setAreaId} disabled={!lineId}>
+            <Label>2 · Secteur / Zone (Area)</Label>
+            <Select
+              value={areaId}
+              onValueChange={(v) => {
+                setAreaId(v);
+                setLineId("");
+                setPillar("all");
+              }}
+              disabled={!category}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Toutes les zones" />
               </SelectTrigger>
@@ -264,7 +278,51 @@ function NewAuditPage() {
             </Select>
           </div>
           <div className="sm:col-span-2">
-            <Label>Pilier MOTO à auditer</Label>
+            <Label>3 · Check point</Label>
+            <Select
+              value={checkPoint}
+              onValueChange={setCheckPoint}
+              disabled={!category}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Tous les check points" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="all">
+                  Tous les check points ({checkPoints.length})
+                </SelectItem>
+                {checkPoints.map((it) => (
+                  <SelectItem key={it.id} value={it.id}>
+                    #{it.code} — {(it.description ?? "").slice(0, 70) || "Sans libellé"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>4 · Ligne de production *</Label>
+            <Select
+              value={lineId}
+              onValueChange={(v) => {
+                setLineId(v);
+                setPillar("all");
+              }}
+              disabled={!category}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Choisir une ligne…" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {lines.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>4 · Pilier MOTO</Label>
             <Select value={pillar} onValueChange={setPillar} disabled={!lineId}>
               <SelectTrigger>
                 <SelectValue placeholder="Tous les piliers" />
@@ -282,11 +340,11 @@ function NewAuditPage() {
           <div className="sm:col-span-2 rounded-lg border bg-muted/40 p-4 text-sm">
             <div className="font-semibold mb-1">Périmètre sélectionné</div>
             <div className="text-muted-foreground">
-              {lineId
-                ? `${scopedWs.length} poste(s) de travail · ${pillars.length} pilier(s) : ${
-                    pillars.join(", ") || "—"
-                  }`
-                : "Sélectionnez une ligne de production pour voir les postes et piliers."}
+              {category
+                ? `${scopedWs.length} poste(s) de travail · ${checkPoints.length} check point(s) · ${
+                    pillars.length
+                  } pilier(s) : ${pillars.join(", ") || "—"}`
+                : "Commencez par sélectionner une catégorie : les niveaux suivants s'ajustent automatiquement."}
             </div>
           </div>
         </CardContent>
