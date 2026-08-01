@@ -144,7 +144,10 @@ function AdminPage() {
     <div className="p-6 space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Administration</h1>
-        <p className="text-sm text-muted-foreground">Gestion des utilisateurs et rôles.</p>
+        <p className="text-sm text-muted-foreground">
+          Gestion des comptes, des habilitations et du cycle de vie des utilisateurs. La
+          saisie d'audit n'est pas accessible depuis ce profil.
+        </p>
       </div>
       <Card>
         <CardHeader>
@@ -160,24 +163,49 @@ function AdminPage() {
                 <th className="py-2 px-3">Compte</th>
                 <th className="py-2 px-3">Rôles</th>
                 <th className="py-2 px-3">Attribuer</th>
+                <th className="py-2 px-3 text-right">Suppression</th>
               </tr>
             </thead>
             <tbody>
               {users?.map((u) => (
                 <tr key={u.id} className="border-b">
                   <td className="py-2 px-3 font-medium">{u.full_name ?? "—"}</td>
-                  <td className="py-2 px-3">{u.email}</td>
+                  <td className="py-2 px-3">{normalizeCorporateEmail(u.email)}</td>
                   <td className="py-2 px-3">{u.department ?? "—"}</td>
                   <td className="py-2 px-3">
-                    <Button
-                      size="sm"
-                      variant={u.approved ? "outline" : "default"}
-                      onClick={() =>
-                        setApproved.mutate({ userId: u.id, approved: !u.approved })
-                      }
-                    >
-                      {u.approved ? "Validé — suspendre" : "Valider le compte"}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[11px] font-semibold uppercase tracking-wider ${
+                          u.approved
+                            ? "text-[var(--status-ok)]"
+                            : "text-[var(--status-ng)]"
+                        }`}
+                      >
+                        {u.approved ? "Actif" : "Suspendu"}
+                      </span>
+                      {u.approved ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={setApproved.isPending}
+                          onClick={() =>
+                            setApproved.mutate({ userId: u.id, approved: false })
+                          }
+                        >
+                          <Ban className="mr-1 h-3.5 w-3.5" /> Suspendre
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled={setApproved.isPending}
+                          onClick={() =>
+                            setApproved.mutate({ userId: u.id, approved: true })
+                          }
+                        >
+                          <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Valider
+                        </Button>
+                      )}
+                    </div>
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex gap-1 flex-wrap">
@@ -189,13 +217,14 @@ function AdminPage() {
                           onClick={() => revoke.mutate({ userId: u.id, role: r as Role })}
                           title="Cliquer pour révoquer"
                         >
-                          {r} ×
+                          {ROLE_LABEL_FR[r as Role] ?? r} ×
                         </Badge>
                       ))}
                     </div>
                   </td>
                   <td className="py-2 px-3">
                     <Select
+                      value=""
                       onValueChange={(v) =>
                         assign.mutate({ userId: u.id, role: v as Role })
                       }
@@ -210,6 +239,35 @@ function AdminPage() {
                         <SelectItem value="department_manager">Department Manager</SelectItem>
                       </SelectContent>
                     </Select>
+                  </td>
+                  <td className="py-2 px-3 text-right">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={u.id === user?.id || removeUser.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Supprimer définitivement ce compte ?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {normalizeCorporateEmail(u.email)} sera retiré de la plateforme
+                            ainsi que ses habilitations. Cette opération est irréversible.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => removeUser.mutate(u.id)}>
+                            Supprimer
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </td>
                 </tr>
               ))}
