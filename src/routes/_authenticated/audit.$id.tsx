@@ -42,6 +42,7 @@ interface GridItem {
 export const Route = createFileRoute("/_authenticated/audit/$id")({
   validateSearch: (s: Record<string, unknown>) => ({
     pillar: typeof s.pillar === "string" ? s.pillar : undefined,
+    item: typeof s.item === "string" ? s.item : undefined,
   }),
   head: () => ({
     meta: [
@@ -59,7 +60,7 @@ export const Route = createFileRoute("/_authenticated/audit/$id")({
 
 function AuditGrid() {
   const { id } = Route.useParams();
-  const { pillar: pillarParam } = Route.useSearch();
+  const { pillar: pillarParam, item: itemParam } = Route.useSearch();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [pillarFilter, setPillarFilter] = useState<string>(pillarParam ?? "all");
@@ -161,7 +162,9 @@ function AuditGrid() {
 
   const rows = useMemo(() => {
     const all = Array.from(mapping?.items.values() ?? []).sort((a, b) => a.code - b.code);
-    const scoped = pillarFilter === "all" ? all : all.filter((i) => i.pillar === pillarFilter);
+    const byItem = itemParam ? all.filter((i) => i.id === itemParam) : all;
+    const scoped =
+      pillarFilter === "all" ? byItem : byItem.filter((i) => i.pillar === pillarFilter);
     const grouped = new Map<string, GridItem[]>();
     for (const it of scoped) {
       const arr = grouped.get(it.pillar) ?? [];
@@ -169,7 +172,7 @@ function AuditGrid() {
       grouped.set(it.pillar, arr);
     }
     return Array.from(grouped, ([pillar, items]) => ({ pillar, items }));
-  }, [mapping, pillarFilter]);
+  }, [mapping, pillarFilter, itemParam]);
 
   const closed = audit?.status === "closed";
 
