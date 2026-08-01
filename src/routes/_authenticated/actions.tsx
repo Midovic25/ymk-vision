@@ -55,9 +55,7 @@ export const Route = createFileRoute("/_authenticated/actions")({
   }),
   errorComponent: routeErrorComponent("Plans d'action indisponibles"),
   component: () => (
-    <RoleGate
-      allowed={["admin", "action_responsible", "department_manager", "moto_responsible"]}
-    >
+    <RoleGate allowed={["admin", "action_responsible", "department_manager", "moto_responsible"]}>
       <ActionsPage />
     </RoleGate>
   ),
@@ -140,8 +138,7 @@ function ActionsPage() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["actions"] }),
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Mise à jour impossible"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Mise à jour impossible"),
   });
 
   const isManager = roles.includes("department_manager") || roles.includes("admin");
@@ -371,9 +368,7 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
       let evidence_correction_url = action.evidence_correction_url;
       if (file) {
         const path = `corrections/${action.id}/${Date.now()}-${file.name}`;
-        const { error: upErr } = await supabase.storage
-          .from("audit-evidence")
-          .upload(path, file);
+        const { error: upErr } = await supabase.storage.from("audit-evidence").upload(path, file);
         if (upErr) throw upErr;
         evidence_correction_url = path;
       }
@@ -445,11 +440,7 @@ function EditDialog({ action, onClose }: { action: ActionRow | null; onClose: ()
           </div>
           <div>
             <Label>Échéance</Label>
-            <Input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
           <div>
             <Label>

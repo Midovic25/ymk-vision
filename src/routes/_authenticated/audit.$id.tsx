@@ -42,10 +42,7 @@ export const Route = createFileRoute("/_authenticated/audit/$id")({
     pillar: typeof s.pillar === "string" ? s.pillar : undefined,
   }),
   head: () => ({
-    meta: [
-      { title: "Grille d'audit MOTO — Yazaki YMK" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Grille d'audit MOTO — Yazaki YMK" }, { name: "robots", content: "noindex" }],
   }),
   errorComponent: routeErrorComponent("Audit indisponible"),
   component: () => (
@@ -282,8 +279,7 @@ function AuditGrid() {
       qc.invalidateQueries();
       navigate({ to: "/audit" });
     },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Clôture impossible"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Clôture impossible"),
   });
 
   const lineName = (audit?.lines as { name: string } | null)?.name ?? "…";
@@ -476,11 +472,7 @@ function AuditGrid() {
         </CardContent>
       </Card>
 
-      <NgDialog
-        dialog={ngDialog}
-        auditAreaId={areaId}
-        onClose={() => setNgDialog(null)}
-      />
+      <NgDialog dialog={ngDialog} auditAreaId={areaId} onClose={() => setNgDialog(null)} />
     </div>
   );
 }
@@ -593,9 +585,7 @@ function NgDialog({
       let evidence_url: string | null = null;
       if (file) {
         const path = `${dialog.entryIds[0]}/${Date.now()}-${file.name}`;
-        const { error: upErr } = await supabase.storage
-          .from("audit-evidence")
-          .upload(path, file);
+        const { error: upErr } = await supabase.storage.from("audit-evidence").upload(path, file);
         if (upErr) throw upErr;
         evidence_url = path;
       }
@@ -688,11 +678,7 @@ function NgDialog({
             </div>
             <div>
               <Label>Date de début</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div>
               <Label>Date limite *</Label>

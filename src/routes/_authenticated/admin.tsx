@@ -96,8 +96,7 @@ function AdminPage() {
       qc.invalidateQueries({ queryKey: ["admin-users"] });
       toast.success("Statut du compte mis à jour");
     },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Mise à jour impossible"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Mise à jour impossible"),
   });
 
   if (loading) return <div className="p-8">Chargement…</div>;
@@ -144,9 +143,7 @@ function AdminPage() {
                     <Button
                       size="sm"
                       variant={u.approved ? "outline" : "default"}
-                      onClick={() =>
-                        setApproved.mutate({ userId: u.id, approved: !u.approved })
-                      }
+                      onClick={() => setApproved.mutate({ userId: u.id, approved: !u.approved })}
                     >
                       {u.approved ? "Validé — suspendre" : "Valider le compte"}
                     </Button>
@@ -167,11 +164,7 @@ function AdminPage() {
                     </div>
                   </td>
                   <td className="py-2 px-3">
-                    <Select
-                      onValueChange={(v) =>
-                        assign.mutate({ userId: u.id, role: v as Role })
-                      }
-                    >
+                    <Select onValueChange={(v) => assign.mutate({ userId: u.id, role: v as Role })}>
                       <SelectTrigger className="w-48">
                         <SelectValue placeholder="+ Rôle" />
                       </SelectTrigger>

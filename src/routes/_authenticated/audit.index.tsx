@@ -75,9 +75,7 @@ function AuditList() {
               <tbody>
                 {audits?.map((a) => (
                   <tr key={a.id} className="border-b hover:bg-muted/40">
-                    <td className="py-2 px-3">
-                      {format(new Date(a.audit_date), "dd/MM/yyyy")}
-                    </td>
+                    <td className="py-2 px-3">{format(new Date(a.audit_date), "dd/MM/yyyy")}</td>
                     <td className="py-2 px-3">{a.plant ?? "YMK"}</td>
                     <td className="py-2 px-3 font-medium">
                       {(a.lines as { name: string } | null)?.name}
@@ -87,9 +85,7 @@ function AuditList() {
                         {a.status === "closed" ? "Clôturé" : "Brouillon"}
                       </Badge>
                     </td>
-                    <td className="py-2 px-3 font-bold">
-                      {a.score != null ? `${a.score}%` : "—"}
-                    </td>
+                    <td className="py-2 px-3 font-bold">{a.score != null ? `${a.score}%` : "—"}</td>
                     <td className="py-2 px-3 text-right">
                       <Button asChild size="sm" variant="ghost">
                         <Link to="/audit/$id" params={{ id: a.id }}>

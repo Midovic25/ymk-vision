@@ -112,8 +112,7 @@ function NewAuditPage() {
         params: { id: a.id },
         search: pillar === "all" ? {} : { pillar },
       }),
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Création impossible"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Création impossible"),
   });
 
   return (

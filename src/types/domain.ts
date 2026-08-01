@@ -147,20 +147,13 @@ export interface CorrectiveAction {
 
 /** Explicit success/failure envelope for service calls (no thrown strings). */
 export type Result<T, E = AppError> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: E };
+  { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: E };
 
 export const ok = <T>(value: T): Result<T, never> => ({ ok: true, value });
 export const err = <E>(error: E): Result<never, E> => ({ ok: false, error });
 
 export type AppErrorKind =
-  | "validation"
-  | "unauthorized"
-  | "forbidden"
-  | "not_found"
-  | "conflict"
-  | "network"
-  | "unknown";
+  "validation" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "network" | "unknown";
 
 export class AppError extends Error {
   readonly kind: AppErrorKind;

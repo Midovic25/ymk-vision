@@ -1,12 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import {
-  ClipboardCheck,
-  BarChart3,
-  AlertTriangle,
-  ShieldCheck,
-  ArrowRight,
-} from "lucide-react";
+import { ClipboardCheck, BarChart3, AlertTriangle, ShieldCheck, ArrowRight } from "lucide-react";
 import logoAsset from "@/assets/yazaki_logo.png.asset.json";
 import { useCurrentUser, primaryRoute } from "@/hooks/use-current-user";
 
@@ -63,9 +57,9 @@ function Landing() {
               <span className="block text-primary">& Audit MOTO</span>
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
-              Digitalisation globale du suivi qualité, gestion des audits terrain et suivi en
-              temps réel des plans d'action correctifs pour l'usine Yazaki Kenitra. Une source
-              unique de vérité, du poste de travail au comité de direction.
+              Digitalisation globale du suivi qualité, gestion des audits terrain et suivi en temps
+              réel des plans d'action correctifs pour l'usine Yazaki Kenitra. Une source unique de
+              vérité, du poste de travail au comité de direction.
             </p>
             <div className="mt-8 flex gap-3">
               <Button size="lg" asChild>

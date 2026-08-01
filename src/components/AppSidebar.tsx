@@ -35,9 +35,24 @@ type Item = {
 
 const items: Item[] = [
   { title: "Accueil", url: "/home", icon: Home, exact: true },
-  { title: "Tableau de bord", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "department_manager", "moto_responsible"] },
-  { title: "Saisie d'audit", url: "/audit", icon: ClipboardList, roles: ["admin", "moto_responsible"] },
-  { title: "Plans d'action", url: "/actions", icon: AlertTriangle, roles: ["admin", "action_responsible", "department_manager", "moto_responsible"] },
+  {
+    title: "Tableau de bord",
+    url: "/dashboard",
+    icon: LayoutDashboard,
+    roles: ["admin", "department_manager", "moto_responsible"],
+  },
+  {
+    title: "Saisie d'audit",
+    url: "/audit",
+    icon: ClipboardList,
+    roles: ["admin", "moto_responsible"],
+  },
+  {
+    title: "Plans d'action",
+    url: "/actions",
+    icon: AlertTriangle,
+    roles: ["admin", "action_responsible", "department_manager", "moto_responsible"],
+  },
   { title: "Administration", url: "/admin", icon: Users, adminOnly: true },
   { title: "Mon profil", url: "/profile", icon: User },
 ];

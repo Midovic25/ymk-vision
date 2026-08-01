@@ -32,11 +32,7 @@ function ProfilePage() {
     queryKey: ["profile", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user!.id)
-        .maybeSingle();
+      const { data } = await supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle();
       return data;
     },
   });
@@ -63,9 +59,7 @@ function ProfilePage() {
         .update({ avatar_url: path })
         .eq("id", user.id);
       if (error) throw error;
-      const { data: signed } = await supabase.storage
-        .from("avatars")
-        .createSignedUrl(path, 3600);
+      const { data: signed } = await supabase.storage.from("avatars").createSignedUrl(path, 3600);
       setLocalAvatar(signed?.signedUrl ?? null);
       qc.invalidateQueries();
       toast.success("Photo de profil mise à jour");
@@ -79,14 +73,12 @@ function ProfilePage() {
   const save = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Non connecté");
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-          id: user.id,
-          email: user.email,
-          full_name: fullName,
-          department,
-        });
+      const { error } = await supabase.from("profiles").upsert({
+        id: user.id,
+        email: user.email,
+        full_name: fullName,
+        department,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -130,9 +122,7 @@ function ProfilePage() {
                   if (f) void uploadAvatar(f);
                 }}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                {roleLabel(roles)}
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">{roleLabel(roles)}</p>
             </div>
           </div>
           <div>

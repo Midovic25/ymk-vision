@@ -204,11 +204,7 @@ function AuthPage() {
                             r.passed ? "text-[var(--status-ok)]" : "text-muted-foreground"
                           }`}
                         >
-                          {r.passed ? (
-                            <Check className="h-3 w-3" />
-                          ) : (
-                            <X className="h-3 w-3" />
-                          )}
+                          {r.passed ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           {r.label}
                         </li>
                       ))}

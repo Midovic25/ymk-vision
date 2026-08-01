@@ -55,8 +55,7 @@ function Dashboard() {
       return {
         totalAudits: audits.count ?? 0,
         totalNG: ng.count ?? 0,
-        openActions:
-          actions.data?.filter((a) => a.status !== "Close").length ?? 0,
+        openActions: actions.data?.filter((a) => a.status !== "Close").length ?? 0,
         score: total ? Math.round((ok / total) * 1000) / 10 : 0,
       };
     },
@@ -158,7 +157,13 @@ function Dashboard() {
             <ResponsiveContainer>
               <BarChart data={byLine ?? []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.9 0.01 250)" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 10 }}
+                  angle={-30}
+                  textAnchor="end"
+                  height={60}
+                />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
                 <Bar dataKey="score" fill="oklch(0.58 0.22 27)" radius={[4, 4, 0, 0]} />
@@ -174,13 +179,7 @@ function Dashboard() {
           <CardContent className="h-72">
             <ResponsiveContainer>
               <PieChart>
-                <Pie
-                  data={byStatus ?? []}
-                  dataKey="value"
-                  nameKey="name"
-                  outerRadius={90}
-                  label
-                >
+                <Pie data={byStatus ?? []} dataKey="value" nameKey="name" outerRadius={90} label>
                   {(byStatus ?? []).map((s, i) => (
                     <Cell key={i} fill={s.color} />
                   ))}
@@ -234,10 +233,10 @@ function Kpi({
     accent === "ok"
       ? "text-[var(--status-ok)]"
       : accent === "ng"
-      ? "text-[var(--status-ng)]"
-      : accent === "na"
-      ? "text-[var(--status-na)]"
-      : "text-primary";
+        ? "text-[var(--status-ng)]"
+        : accent === "na"
+          ? "text-[var(--status-na)]"
+          : "text-primary";
   return (
     <Card>
       <CardContent className="p-5 flex items-center justify-between">

@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole =
-  | "admin"
-  | "moto_responsible"
-  | "action_responsible"
-  | "department_manager";
+export type AppRole = "admin" | "moto_responsible" | "action_responsible" | "department_manager";
 
 export interface ProfileLite {
   full_name: string | null;

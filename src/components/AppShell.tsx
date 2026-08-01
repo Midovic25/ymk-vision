@@ -47,7 +47,11 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
                   </div>
                   <div className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground flex items-center justify-center font-bold text-sm shadow ring-2 ring-primary/10">
                     {avatarSrc ? (
-                      <img src={avatarSrc} alt={displayName} className="h-full w-full object-cover" />
+                      <img
+                        src={avatarSrc}
+                        alt={displayName}
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       initialsOf(profile?.full_name, user.email)
                     )}
@@ -92,8 +96,8 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
                   <ShieldAlert className="h-10 w-10 mx-auto text-primary mb-3" />
                   <h2 className="text-lg font-bold">Compte en attente de validation</h2>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Votre inscription a bien été enregistrée. Un administrateur doit valider
-                    votre compte et vous attribuer un rôle avant l'accès à la plateforme.
+                    Votre inscription a bien été enregistrée. Un administrateur doit valider votre
+                    compte et vous attribuer un rôle avant l'accès à la plateforme.
                   </p>
                 </div>
               </div>
