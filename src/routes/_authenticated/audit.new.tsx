@@ -38,55 +38,111 @@ function NewAuditPage() {
   const navigate = useNavigate();
   const { user, profile } = useCurrentUser();
   const [plant, setPlant] = useState("YMK");
+  const [category, setCategory] = useState("");
   const [lineId, setLineId] = useState("");
   const [areaId, setAreaId] = useState("");
+  const [checkPoint, setCheckPoint] = useState("all");
   const [pillar, setPillar] = useState("all");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
-  const { data: lines } = useQuery({
-    queryKey: ["lines"],
+  /* ---- Référentiel complet (léger) alimentant les filtres en cascade ---- */
+
+  const { data: items } = useQuery({
+    queryKey: ["ref-items"],
     queryFn: async () => {
-      const { data } = await supabase.from("lines").select("id, name").order("name");
+      const { data } = await supabase
+        .from("audit_items")
+        .select("id, code, description, category, pillar_id")
+        .order("code");
       return data ?? [];
     },
   });
 
-  // Zones réellement présentes sur la ligne choisie
-  const { data: lineWorkstations } = useQuery({
-    queryKey: ["line-ws", lineId],
-    enabled: !!lineId,
+  const { data: refWs } = useQuery({
+    queryKey: ["ref-workstations"],
     queryFn: async () => {
       const { data } = await supabase
         .from("workstations")
-        .select("id, name, area_id, pillar_id, areas(name), pillars(name)")
-        .eq("line_id", lineId)
+        .select("id, name, line_id, area_id, pillar_id, areas(name), lines(name), pillars(name)")
         .order("name");
       return data ?? [];
     },
   });
 
+  /* Niveau 1 — Catégorie (ProcessGroupName) */
+  const categories = useMemo(() => {
+    const s = new Set<string>();
+    for (const it of items ?? []) if (it.category) s.add(it.category);
+    return Array.from(s).sort();
+  }, [items]);
+
+  /** Piliers rattachés à la catégorie sélectionnée. */
+  const categoryPillarIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const it of items ?? []) {
+      if (category && it.category !== category) continue;
+      if (it.pillar_id) s.add(it.pillar_id);
+    }
+    return s;
+  }, [items, category]);
+
+  /** Postes compatibles avec la catégorie sélectionnée. */
+  const scopedByCategory = useMemo(
+    () =>
+      (refWs ?? []).filter(
+        (w) => !category || (w.pillar_id && categoryPillarIds.has(w.pillar_id)),
+      ),
+    [refWs, category, categoryPillarIds],
+  );
+
+  /* Niveau 2 — Area (ProcessName / zone) */
   const areas = useMemo(() => {
     const m = new Map<string, string>();
-    for (const w of lineWorkstations ?? []) {
+    for (const w of scopedByCategory) {
       const name = (w.areas as { name: string } | null)?.name;
       if (w.area_id && name) m.set(w.area_id, name);
     }
     return Array.from(m, ([id, name]) => ({ id, name })).sort((a, b) =>
       a.name.localeCompare(b.name),
     );
-  }, [lineWorkstations]);
+  }, [scopedByCategory]);
+
+  /* Niveau 3 — Check points disponibles */
+  const checkPoints = useMemo(
+    () => (items ?? []).filter((it) => !category || it.category === category),
+    [items, category],
+  );
+
+  /* Niveau 4 — Lignes, date et piliers strictement liés aux niveaux précédents */
+  const scopedByArea = useMemo(
+    () => scopedByCategory.filter((w) => !areaId || w.area_id === areaId),
+    [scopedByCategory, areaId],
+  );
+
+  const lines = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const w of scopedByArea) {
+      const name = (w.lines as { name: string } | null)?.name;
+      if (w.line_id && name) m.set(w.line_id, name);
+    }
+    return Array.from(m, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [scopedByArea]);
+
+  const scopedWs = useMemo(
+    () => scopedByArea.filter((w) => !lineId || w.line_id === lineId),
+    [scopedByArea, lineId],
+  );
 
   const pillars = useMemo(() => {
     const s = new Set<string>();
-    for (const w of lineWorkstations ?? []) {
-      if (areaId && w.area_id !== areaId) continue;
+    for (const w of scopedWs) {
       const name = (w.pillars as { name: string } | null)?.name;
       if (name) s.add(name);
     }
     return Array.from(s).sort();
-  }, [lineWorkstations, areaId]);
-
-  const scopedWs = (lineWorkstations ?? []).filter((w) => !areaId || w.area_id === areaId);
+  }, [scopedWs]);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -110,7 +166,10 @@ function NewAuditPage() {
       navigate({
         to: "/audit/$id",
         params: { id: a.id },
-        search: pillar === "all" ? {} : { pillar },
+        search: {
+          ...(pillar === "all" ? {} : { pillar }),
+          ...(checkPoint === "all" ? {} : { item: checkPoint }),
+        },
       }),
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Création impossible"),
@@ -168,33 +227,44 @@ function NewAuditPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Périmètre hiérarchique</CardTitle>
+          <CardTitle>Filtres en cascade — périmètre hiérarchique</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label>Ligne de production *</Label>
+            <Label>1 · Catégorie (Process Group)</Label>
             <Select
-              value={lineId}
+              value={category}
               onValueChange={(v) => {
-                setLineId(v);
+                setCategory(v);
                 setAreaId("");
+                setLineId("");
+                setCheckPoint("all");
+                setPillar("all");
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Choisir une ligne…" />
+                <SelectValue placeholder="Choisir une catégorie…" />
               </SelectTrigger>
               <SelectContent className="max-h-72">
-                {lines?.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.name}
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label>Secteur / Zone (Area)</Label>
-            <Select value={areaId} onValueChange={setAreaId} disabled={!lineId}>
+            <Label>2 · Secteur / Zone (Area)</Label>
+            <Select
+              value={areaId}
+              onValueChange={(v) => {
+                setAreaId(v);
+                setLineId("");
+                setPillar("all");
+              }}
+              disabled={!category}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Toutes les zones" />
               </SelectTrigger>
@@ -208,7 +278,51 @@ function NewAuditPage() {
             </Select>
           </div>
           <div className="sm:col-span-2">
-            <Label>Pilier MOTO à auditer</Label>
+            <Label>3 · Check point</Label>
+            <Select
+              value={checkPoint}
+              onValueChange={setCheckPoint}
+              disabled={!category}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Tous les check points" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="all">
+                  Tous les check points ({checkPoints.length})
+                </SelectItem>
+                {checkPoints.map((it) => (
+                  <SelectItem key={it.id} value={it.id}>
+                    #{it.code} — {(it.description ?? "").slice(0, 70) || "Sans libellé"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>4 · Ligne de production *</Label>
+            <Select
+              value={lineId}
+              onValueChange={(v) => {
+                setLineId(v);
+                setPillar("all");
+              }}
+              disabled={!category}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Choisir une ligne…" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {lines.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>4 · Pilier MOTO</Label>
             <Select value={pillar} onValueChange={setPillar} disabled={!lineId}>
               <SelectTrigger>
                 <SelectValue placeholder="Tous les piliers" />
@@ -226,11 +340,11 @@ function NewAuditPage() {
           <div className="sm:col-span-2 rounded-lg border bg-muted/40 p-4 text-sm">
             <div className="font-semibold mb-1">Périmètre sélectionné</div>
             <div className="text-muted-foreground">
-              {lineId
-                ? `${scopedWs.length} poste(s) de travail · ${pillars.length} pilier(s) : ${
-                    pillars.join(", ") || "—"
-                  }`
-                : "Sélectionnez une ligne de production pour voir les postes et piliers."}
+              {category
+                ? `${scopedWs.length} poste(s) de travail · ${checkPoints.length} check point(s) · ${
+                    pillars.length
+                  } pilier(s) : ${pillars.join(", ") || "—"}`
+                : "Commencez par sélectionner une catégorie : les niveaux suivants s'ajustent automatiquement."}
             </div>
           </div>
         </CardContent>

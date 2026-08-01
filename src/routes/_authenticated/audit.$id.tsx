@@ -21,11 +21,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Camera, Check, Lock, Minus, Save, X } from "lucide-react";
 import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 import { RoleGate } from "@/hooks/use-role-guard";
+import { normalizeCorporateEmail } from "@/lib/validation";
 
 type Status = "OK" | "NG" | "NA";
 
@@ -40,6 +42,7 @@ interface GridItem {
 export const Route = createFileRoute("/_authenticated/audit/$id")({
   validateSearch: (s: Record<string, unknown>) => ({
     pillar: typeof s.pillar === "string" ? s.pillar : undefined,
+    item: typeof s.item === "string" ? s.item : undefined,
   }),
   head: () => ({
     meta: [
@@ -57,10 +60,12 @@ export const Route = createFileRoute("/_authenticated/audit/$id")({
 
 function AuditGrid() {
   const { id } = Route.useParams();
-  const { pillar: pillarParam } = Route.useSearch();
+  const { pillar: pillarParam, item: itemParam } = Route.useSearch();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [pillarFilter, setPillarFilter] = useState<string>(pillarParam ?? "all");
+  /** `null` = tous les postes de la ligne (bouton « Sélectionner tout »). */
+  const [selectedWs, setSelectedWs] = useState<string[] | null>(null);
   const [ngDialog, setNgDialog] = useState<{
     entryIds: string[];
     item: GridItem;
@@ -157,7 +162,9 @@ function AuditGrid() {
 
   const rows = useMemo(() => {
     const all = Array.from(mapping?.items.values() ?? []).sort((a, b) => a.code - b.code);
-    const scoped = pillarFilter === "all" ? all : all.filter((i) => i.pillar === pillarFilter);
+    const byItem = itemParam ? all.filter((i) => i.id === itemParam) : all;
+    const scoped =
+      pillarFilter === "all" ? byItem : byItem.filter((i) => i.pillar === pillarFilter);
     const grouped = new Map<string, GridItem[]>();
     for (const it of scoped) {
       const arr = grouped.get(it.pillar) ?? [];
@@ -165,9 +172,22 @@ function AuditGrid() {
       grouped.set(it.pillar, arr);
     }
     return Array.from(grouped, ([pillar, items]) => ({ pillar, items }));
-  }, [mapping, pillarFilter]);
+  }, [mapping, pillarFilter, itemParam]);
 
   const closed = audit?.status === "closed";
+
+  const allWs = useMemo(() => workstations ?? [], [workstations]);
+  const visibleWs = useMemo(
+    () => (selectedWs === null ? allWs : allWs.filter((w) => selectedWs.includes(w.id))),
+    [allWs, selectedWs],
+  );
+  const allSelected = selectedWs === null || selectedWs.length === allWs.length;
+
+  function toggleWs(wsId: string, checked: boolean) {
+    const base = selectedWs === null ? allWs.map((w) => w.id) : selectedWs;
+    const next = checked ? [...new Set([...base, wsId])] : base.filter((x) => x !== wsId);
+    setSelectedWs(next);
+  }
 
   const setStatus = useMutation({
     mutationFn: async (p: { cells: Array<{ wsId: string; itemId: string }>; status: Status }) => {
@@ -249,22 +269,41 @@ function AuditGrid() {
           );
           if (error) throw error;
         }
-        // 2. Notification des responsables d'action assignés
+        // 2. Notification groupée : un seul e-mail par responsable d'action,
+        //    contenant la liste complète des check points qui lui sont assignés.
         const { data: assigned } = await supabase
           .from("ng_actions")
-          .select("id, assigned_to, issue_description, due_date")
+          .select("id, assigned_to, issue_description, due_date, priority")
           .in("entry_id", ngEntryIds)
           .not("assigned_to", "is", null);
-        const notif = (assigned ?? [])
-          .filter((a) => a.assigned_to)
-          .map((a) => ({
-            user_id: a.assigned_to as string,
-            action_id: a.id,
-            subject: "Nouvelle action corrective MOTO assignée",
-            body: `Non-conformité : ${a.issue_description}\nÉchéance : ${
-              a.due_date ?? "à définir"
-            }`,
-          }));
+
+        type AssignedRow = NonNullable<typeof assigned>[number];
+        const byResponsible = new Map<string, AssignedRow[]>();
+        for (const a of assigned ?? []) {
+          if (!a.assigned_to) continue;
+          const arr = byResponsible.get(a.assigned_to) ?? [];
+          arr.push(a);
+          byResponsible.set(a.assigned_to, arr);
+        }
+
+        const notif = Array.from(byResponsible, ([userId, list]) => ({
+          user_id: userId,
+          action_id: list[0]?.id ?? null,
+          subject: `Plan d'action MOTO — ${list.length} check point(s) à traiter`,
+          body: [
+            `Suite à la clôture de l'audit MOTO du ${audit?.audit_date ?? ""} sur la ligne ${lineName},`,
+            `${list.length} non-conformité(s) vous sont assignées :`,
+            "",
+            ...list.map(
+              (a, i) =>
+                `${i + 1}. ${a.issue_description} — priorité ${a.priority ?? "normale"} — échéance ${
+                  a.due_date ?? "à définir"
+                }`,
+            ),
+            "",
+            "Merci de renseigner le plan d'action, la preuve photo et le statut sur la plateforme.",
+          ].join("\n"),
+        }));
         if (notif.length) await supabase.from("notifications").insert(notif);
       }
 
@@ -356,7 +395,49 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Items de contrôle × Postes de travail ({workstations?.length ?? 0} postes)
+            Postes de travail de la ligne ({visibleWs.length}/{allWs.length} sélectionnés)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={allSelected ? "default" : "outline"}
+              disabled={closed}
+              onClick={() => setSelectedWs(allSelected ? [] : null)}
+            >
+              {allSelected ? "Tout désélectionner" : "Sélectionner tout"}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Après « Sélectionner tout », vous pouvez décocher individuellement les postes
+              non concernés.
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {allWs.map((w) => {
+              const checked = selectedWs === null || selectedWs.includes(w.id);
+              return (
+                <label key={w.id} className="flex items-center gap-2 text-xs">
+                  <Checkbox
+                    checked={checked}
+                    disabled={closed}
+                    onCheckedChange={(v) => toggleWs(w.id, v === true)}
+                  />
+                  {w.name}
+                </label>
+              );
+            })}
+            {allWs.length === 0 && (
+              <span className="text-xs text-muted-foreground">Aucun poste sur ce périmètre.</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Items de contrôle × Postes de travail ({visibleWs.length} postes)
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -370,7 +451,10 @@ function AuditGrid() {
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
                     ALL
                   </th>
-                  {workstations?.map((w) => (
+                  <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
+                    Score
+                  </th>
+                  {visibleWs.map((w) => (
                     <th
                       key={w.id}
                       className="bg-card border-b border-r px-2 py-2 text-[11px] font-semibold whitespace-nowrap"
@@ -385,16 +469,23 @@ function AuditGrid() {
                   <Fragment key={group.pillar}>
                     <tr>
                       <td
-                        colSpan={(workstations?.length ?? 0) + 2}
+                        colSpan={visibleWs.length + 3}
                         className="bg-muted/60 border-b px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
                       >
                         Pilier · {group.pillar}
                       </td>
                     </tr>
                     {group.items.map((it) => {
-                      const applicable = (workstations ?? []).filter((w) =>
+                      const applicable = visibleWs.filter((w) =>
                         mapping?.pairs.has(`${w.id}:${it.id}`),
                       );
+                      const evaluatedCells = applicable
+                        .map((w) => entries?.get(`${w.id}:${it.id}`)?.status)
+                        .filter((s): s is Status => s === "OK" || s === "NG");
+                      const okCount = evaluatedCells.filter((s) => s === "OK").length;
+                      const itemScore = applicable.length
+                        ? Math.round((okCount / applicable.length) * 100)
+                        : 0;
                       return (
                         <tr key={it.id} className="hover:bg-muted/30">
                           <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-1.5 align-top">
@@ -429,7 +520,13 @@ function AuditGrid() {
                               ))}
                             </div>
                           </td>
-                          {workstations?.map((w) => {
+                          <td className="border-b border-r px-2 py-1.5 text-center">
+                            <div className="text-sm font-bold">{itemScore}%</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {okCount}/{applicable.length}
+                            </div>
+                          </td>
+                          {visibleWs.map((w) => {
                             const ok = mapping?.pairs.has(`${w.id}:${it.id}`);
                             const current = entries?.get(`${w.id}:${it.id}`);
                             return (
@@ -660,12 +757,22 @@ function NgDialog({
               <SelectContent>
                 {(responsibles ?? []).map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.full_name ?? p.email}
+                    {p.full_name ?? normalizeCorporateEmail(p.email)}
                     {p.department ? ` — ${p.department}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {assignedTo && (
+              <div className="mt-1 text-xs text-muted-foreground">
+                Contact :{" "}
+                <span className="font-semibold text-foreground">
+                  {normalizeCorporateEmail(
+                    (responsibles ?? []).find((p) => p.id === assignedTo)?.email,
+                  ) || "—"}
+                </span>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

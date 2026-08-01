@@ -7,6 +7,8 @@ import {
   Users,
   User,
   LogOut,
+  BarChart3,
+  Inbox,
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,6 +23,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import logoAsset from "@/assets/yazaki_logo.png.asset.json";
+import markAsset from "@/assets/yazaki_mark.webp.asset.json";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -36,7 +39,9 @@ type Item = {
 const items: Item[] = [
   { title: "Accueil", url: "/home", icon: Home, exact: true },
   { title: "Tableau de bord", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "department_manager", "moto_responsible"] },
-  { title: "Saisie d'audit", url: "/audit", icon: ClipboardList, roles: ["admin", "moto_responsible"] },
+  { title: "Pilotage département", url: "/department", icon: BarChart3, roles: ["department_manager"] },
+  { title: "Saisie d'audit", url: "/audit", icon: ClipboardList, roles: ["moto_responsible"] },
+  { title: "Mes actions", url: "/my-actions", icon: Inbox, roles: ["action_responsible"] },
   { title: "Plans d'action", url: "/actions", icon: AlertTriangle, roles: ["admin", "action_responsible", "department_manager", "moto_responsible"] },
   { title: "Administration", url: "/admin", icon: Users, adminOnly: true },
   { title: "Mon profil", url: "/profile", icon: User },
@@ -58,14 +63,22 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-3">
-          <div className="shrink-0 rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-black/5">
-            <img
-              src={logoAsset.url}
-              alt="Yazaki"
-              className={collapsed ? "h-7 w-auto object-contain" : "h-9 w-auto object-contain"}
-            />
-          </div>
+        <div
+          className={
+            collapsed
+              ? "flex items-center justify-center px-1 py-3"
+              : "flex items-center gap-2 px-2 py-3"
+          }
+        >
+          {collapsed ? (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-black/5">
+              <img src={markAsset.url} alt="Yazaki" className="h-4 w-auto object-contain" />
+            </div>
+          ) : (
+            <div className="shrink-0 rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-black/5">
+              <img src={logoAsset.url} alt="Yazaki" className="h-9 w-auto object-contain" />
+            </div>
+          )}
           {!collapsed && (
             <div className="leading-tight">
               <div className="text-sm font-bold text-sidebar-foreground tracking-wide">YAZAKI</div>
@@ -84,7 +97,11 @@ export function AppSidebar() {
               {items
                 .filter((it) => {
                   if (it.adminOnly) return isAdmin;
-                  if (it.roles) return isAdmin || it.roles.some((r) => roles.includes(r));
+                  if (it.roles) {
+                    // L'administrateur pilote la plateforme : pas de saisie d'audit.
+                    if (it.url === "/audit") return roles.includes("moto_responsible");
+                    return isAdmin || it.roles.some((r) => roles.includes(r));
+                  }
                   return true;
                 })
                 .map((item) => (
