@@ -274,7 +274,8 @@ function AuditGrid() {
           .in("entry_id", ngEntryIds)
           .not("assigned_to", "is", null);
 
-        const byResponsible = new Map<string, typeof assigned>();
+        type AssignedRow = NonNullable<typeof assigned>[number];
+        const byResponsible = new Map<string, AssignedRow[]>();
         for (const a of assigned ?? []) {
           if (!a.assigned_to) continue;
           const arr = byResponsible.get(a.assigned_to) ?? [];
