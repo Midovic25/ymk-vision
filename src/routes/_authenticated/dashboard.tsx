@@ -20,6 +20,7 @@ import {
 import { ClipboardList, AlertTriangle, CheckCircle2, TrendingUp } from "lucide-react";
 import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 import { RoleGate } from "@/hooks/use-role-guard";
+import { AiAdvisorCard } from "@/components/AiAdvisorCard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -131,6 +132,8 @@ function Dashboard() {
           Synthèse temps réel de la conformité qualité — YMK Kenitra.
         </p>
       </div>
+
+      <AiAdvisorCard />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Kpi icon={ClipboardList} label="Audits réalisés" value={kpi?.totalAudits ?? "—"} />

@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Camera, Check, Lock, Minus, Save, X } from "lucide-react";
+import { ArrowLeft, Camera, Lock, Save } from "lucide-react";
 import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 import { RoleGate } from "@/hooks/use-role-guard";
 import { normalizeCorporateEmail } from "@/lib/validation";
@@ -449,7 +449,7 @@ function AuditGrid() {
                     Item de contrôle
                   </th>
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
-                    ALL
+                    Actions globales
                   </th>
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
                     Score
@@ -505,6 +505,7 @@ function AuditGrid() {
                                 <StatusButton
                                   key={s}
                                   status={s}
+                                  label={`ALL ${s}`}
                                   active={false}
                                   compact
                                   disabled={closed || setStatus.isPending}
@@ -588,35 +589,43 @@ function StatusButton({
   onClick,
   disabled,
   compact,
+  label,
 }: {
   status: Status;
   active: boolean;
   onClick: () => void;
   disabled?: boolean;
   compact?: boolean;
+  label?: string;
 }) {
-  const Icon = status === "OK" ? Check : status === "NG" ? X : Minus;
   const bg =
     status === "OK"
       ? "bg-[var(--status-ok)]"
       : status === "NG"
         ? "bg-[var(--status-ng)]"
         : "bg-[var(--status-na)]";
-  const size = compact ? "h-7 w-7" : "h-9 w-9";
+  const text =
+    status === "OK"
+      ? "text-[var(--status-ok)]"
+      : status === "NG"
+        ? "text-[var(--status-ng)]"
+        : "text-[var(--status-na)]";
+  const size = compact ? "h-7 px-2 text-[11px]" : "h-9 px-3 text-xs";
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={status}
-      aria-label={status}
-      className={`${size} rounded-md flex items-center justify-center border-2 transition-all ${
+      title={label ?? status}
+      aria-label={label ?? status}
+      aria-pressed={active}
+      className={`${size} rounded-md font-bold uppercase tracking-wide flex items-center justify-center border-2 transition-all ${
         active
           ? `${bg} text-white border-transparent shadow`
-          : "bg-background border-border text-muted-foreground hover:border-primary/50"
+          : `bg-background border-border ${text} opacity-70 hover:opacity-100 hover:border-current`
       } disabled:opacity-50`}
     >
-      <Icon className="h-3.5 w-3.5" />
+      {label ?? status}
     </button>
   );
 }

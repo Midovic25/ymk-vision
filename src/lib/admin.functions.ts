@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 /**
  * Suppression définitive d'un compte utilisateur.
@@ -13,6 +14,7 @@ export const deleteUserAccount = createServerFn({ method: "POST" })
     z.object({ userId: z.string().uuid() }).parse(data),
   )
   .handler(async ({ data, context }) => {
+    assertRateLimit(`admin-delete:${context.userId}`, 10, 60_000);
     if (data.userId === context.userId) {
       throw new Error("Vous ne pouvez pas supprimer votre propre compte.");
     }
