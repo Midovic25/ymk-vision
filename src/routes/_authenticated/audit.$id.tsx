@@ -448,7 +448,7 @@ function AuditGrid() {
                   <th className="sticky left-0 z-30 bg-card border-b border-r px-3 py-2 text-left text-xs uppercase text-muted-foreground min-w-[280px]">
                     Item de contrôle
                   </th>
-                  <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
+                  <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground min-w-[210px]">
                     Actions globales
                   </th>
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
@@ -619,7 +619,7 @@ function StatusButton({
       title={label ?? status}
       aria-label={label ?? status}
       aria-pressed={active}
-      className={`${size} rounded-md font-bold uppercase tracking-wide flex items-center justify-center border-2 transition-all ${
+      className={`${size} whitespace-nowrap rounded-md font-bold uppercase tracking-wide flex items-center justify-center border-2 transition-all ${
         active
           ? `${bg} text-white border-transparent shadow`
           : `bg-background border-border ${text} opacity-70 hover:opacity-100 hover:border-current`
