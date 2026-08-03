@@ -253,6 +253,14 @@ function AuthPage() {
             </Button>
           </CardContent>
         </Card>
+        <TestAccountsPanel
+          onSelect={(e, p) => {
+            setEmail(e);
+            setPassword(p);
+            setErrors({});
+            toast.info("Identifiants pré-remplis — cliquez sur « Se connecter ».");
+          }}
+        />
       </div>
     </div>
   );
@@ -261,4 +269,54 @@ function AuthPage() {
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="mt-1 text-xs font-medium text-destructive">{message}</p>;
+}
+
+const TEST_ACCOUNTS = [
+  { role: "Administrateur", email: "admin@yazaki-europe.com", password: "Admin@Yazaki2026" },
+  { role: "Auditeur MOTO", email: "auditor@yazaki-europe.com", password: "Audit@Yazaki2026" },
+  {
+    role: "Responsable Département",
+    email: "dept.manager@yazaki-europe.com",
+    password: "Manager@Yazaki2026",
+  },
+  {
+    role: "Responsable d'Action",
+    email: "action.resp1@yazaki-europe.com",
+    password: "Action@Yazaki2026",
+  },
+] as const;
+
+function TestAccountsPanel({
+  onSelect,
+}: {
+  onSelect: (email: string, password: string) => void;
+}) {
+  return (
+    <Card className="mt-4 border-dashed">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Comptes de démonstration</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {TEST_ACCOUNTS.map((a) => (
+          <button
+            key={a.email}
+            type="button"
+            onClick={() => onSelect(a.email, a.password)}
+            className="flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:border-primary/60 hover:bg-primary/5"
+          >
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold">{a.role}</span>
+              <span className="block truncate text-[11px] text-muted-foreground">{a.email}</span>
+            </span>
+            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+              {a.password}
+            </span>
+          </button>
+        ))}
+        <p className="text-[11px] text-muted-foreground">
+          Cliquez sur un compte pour pré-remplir le formulaire de connexion.
+        </p>
+      </CardContent>
+    </Card>
+  );
 }
