@@ -52,7 +52,7 @@ export const Route = createFileRoute("/_authenticated/audit/$id")({
   }),
   errorComponent: routeErrorComponent("Audit indisponible"),
   component: () => (
-    <RoleGate allowed={["admin", "moto_responsible"]}>
+    <RoleGate allowed={["moto_responsible"]}>
       <AuditGrid />
     </RoleGate>
   ),

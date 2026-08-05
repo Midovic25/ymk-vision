@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/audit/")({
   }),
   errorComponent: routeErrorComponent("Liste des audits indisponible"),
   component: () => (
-    <RoleGate allowed={["admin", "moto_responsible", "department_manager"]}>
+    <RoleGate allowed={["moto_responsible", "department_manager"]}>
       <AuditList />
     </RoleGate>
   ),
