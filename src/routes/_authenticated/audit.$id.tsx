@@ -484,110 +484,92 @@ function AuditGrid() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((group) => (
-                  <Fragment key={group.pillar}>
-                    <tr>
-                      <td
-                        colSpan={visibleWs.length + 3}
-                        className="bg-muted/60 border-b px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
-                      >
-                        Pilier · {group.pillar}
+                {allWs.map((w) => {
+                  const applicable = visibleItems.filter((it) =>
+                    mapping?.pairs.has(`${w.id}:${it.id}`),
+                  );
+                  const okCount = applicable.filter(
+                    (it) => entries?.get(`${w.id}:${it.id}`)?.status === "OK",
+                  ).length;
+                  const wsScore = applicable.length
+                    ? Math.round((okCount / applicable.length) * 100)
+                    : 0;
+                  return (
+                    <tr key={w.id} className="hover:bg-muted/30">
+                      <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-1.5 align-top">
+                        <div className="font-medium max-w-[260px] truncate">{w.name}</div>
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {(w.pillars as { name: string } | null)?.name ?? "—"}
+                        </div>
                       </td>
-                    </tr>
-                    {group.items.map((it) => {
-                      const applicable = visibleWs.filter((w) =>
-                        mapping?.pairs.has(`${w.id}:${it.id}`),
-                      );
-                      const evaluatedCells = applicable
-                        .map((w) => entries?.get(`${w.id}:${it.id}`)?.status)
-                        .filter((s): s is Status => s === "OK" || s === "NG");
-                      const okCount = evaluatedCells.filter((s) => s === "OK").length;
-                      const itemScore = applicable.length
-                        ? Math.round((okCount / applicable.length) * 100)
-                        : 0;
-                      return (
-                        <tr key={it.id} className="hover:bg-muted/30">
-                          <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-1.5 align-top">
-                            <div className="font-medium">#{it.code}</div>
-                            {it.category && (
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-primary/80 max-w-[260px] truncate">
-                                {it.category}
+                      <td className="border-b border-r px-2 py-1.5">
+                        <div className="flex gap-1">
+                          {(["OK", "NG", "NA"] as Status[]).map((s) => (
+                            <StatusButton
+                              key={s}
+                              status={s}
+                              label={`ALL ${s}`}
+                              active={false}
+                              compact
+                              disabled={closed || setStatus.isPending}
+                              onClick={() =>
+                                void evaluate(
+                                  applicable.map((it) => ({ wsId: w.id, itemId: it.id })),
+                                  s,
+                                  null,
+                                  w.name,
+                                )
+                              }
+                            />
+                          ))}
+                        </div>
+                      </td>
+                      <td className="border-b border-r px-2 py-1.5 text-center">
+                        <div className="text-sm font-bold">{wsScore}%</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {okCount}/{applicable.length}
+                        </div>
+                      </td>
+                      {visibleItems.map((it) => {
+                        const ok = mapping?.pairs.has(`${w.id}:${it.id}`);
+                        const current = entries?.get(`${w.id}:${it.id}`);
+                        return (
+                          <td key={it.id} className="border-b border-r px-2 py-1.5">
+                            {ok ? (
+                              <div className="flex gap-1">
+                                {(["OK", "NG", "NA"] as Status[]).map((s) => (
+                                  <StatusButton
+                                    key={s}
+                                    status={s}
+                                    compact
+                                    active={current?.status === s}
+                                    disabled={closed || setStatus.isPending}
+                                    onClick={() =>
+                                      void evaluate(
+                                        [{ wsId: w.id, itemId: it.id }],
+                                        s,
+                                        it,
+                                        w.name,
+                                      )
+                                    }
+                                  />
+                                ))}
                               </div>
+                            ) : (
+                              <div className="text-center text-muted-foreground">—</div>
                             )}
-                            <div className="text-xs text-muted-foreground line-clamp-2 max-w-[260px]">
-                              {it.description ?? "—"}
-                            </div>
                           </td>
-                          <td className="border-b border-r px-2 py-1.5">
-                            <div className="flex gap-1">
-                              {(["OK", "NG", "NA"] as Status[]).map((s) => (
-                                <StatusButton
-                                  key={s}
-                                  status={s}
-                                  label={`ALL ${s}`}
-                                  active={false}
-                                  compact
-                                  disabled={closed || setStatus.isPending}
-                                  onClick={() =>
-                                    void evaluate(
-                                      applicable.map((w) => ({ wsId: w.id, itemId: it.id })),
-                                      s,
-                                      it,
-                                      "Tous les postes",
-                                    )
-                                  }
-                                />
-                              ))}
-                            </div>
-                          </td>
-                          <td className="border-b border-r px-2 py-1.5 text-center">
-                            <div className="text-sm font-bold">{itemScore}%</div>
-                            <div className="text-[10px] text-muted-foreground">
-                              {okCount}/{applicable.length}
-                            </div>
-                          </td>
-                          {visibleWs.map((w) => {
-                            const ok = mapping?.pairs.has(`${w.id}:${it.id}`);
-                            const current = entries?.get(`${w.id}:${it.id}`);
-                            return (
-                              <td key={w.id} className="border-b border-r px-2 py-1.5">
-                                {ok ? (
-                                  <div className="flex gap-1">
-                                    {(["OK", "NG", "NA"] as Status[]).map((s) => (
-                                      <StatusButton
-                                        key={s}
-                                        status={s}
-                                        compact
-                                        active={current?.status === s}
-                                        disabled={closed || setStatus.isPending}
-                                        onClick={() =>
-                                          void evaluate(
-                                            [{ wsId: w.id, itemId: it.id }],
-                                            s,
-                                            it,
-                                            w.name,
-                                          )
-                                        }
-                                      />
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-center text-muted-foreground">—</div>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </Fragment>
-                ))}
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-          {rows.length === 0 && (
+          {(visibleItems.length === 0 || allWs.length === 0) && (
             <div className="p-8 text-center text-muted-foreground text-sm">
-              Aucun item de contrôle pour ce périmètre.
+              Aucun item de contrôle ou poste de travail pour ce périmètre.
             </div>
           )}
         </CardContent>
