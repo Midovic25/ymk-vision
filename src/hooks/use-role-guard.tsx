@@ -18,7 +18,6 @@ export function useRoleGuard(allowed: readonly AppRole[]): {
   if (loading) return { state: "loading", roles };
   if (profile && profile.approved === false) return { state: "pending_approval", roles };
   if (allowed.length === 0) return { state: "granted", roles };
-  if (roles.includes("admin")) return { state: "granted", roles };
   const granted = allowed.some((r) => roles.includes(r));
   return { state: granted ? "granted" : "denied", roles };
 }
