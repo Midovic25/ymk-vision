@@ -64,8 +64,8 @@ function AuditGrid() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [pillarFilter, setPillarFilter] = useState<string>(pillarParam ?? "all");
-  /** `null` = tous les postes de la ligne (bouton « Sélectionner tout »). */
-  const [selectedWs, setSelectedWs] = useState<string[] | null>(null);
+  /** `null` = tous les items du périmètre (bouton « Sélectionner tout »). */
+  const [selectedItems, setSelectedItems] = useState<string[] | null>(null);
   const [ngDialog, setNgDialog] = useState<{
     entryIds: string[];
     item: GridItem;
@@ -160,33 +160,41 @@ function AuditGrid() {
     return Array.from(s).sort();
   }, [mapping]);
 
-  const rows = useMemo(() => {
+  /**
+   * Le pilier transmis par l'écran de configuration provient du référentiel
+   * « postes » ; s'il ne correspond à aucun pilier d'item du périmètre, on
+   * retombe sur « tous » afin de ne jamais afficher une grille vide.
+   */
+  const effectivePillar =
+    pillarFilter !== "all" && pillars.length > 0 && !pillars.includes(pillarFilter)
+      ? "all"
+      : pillarFilter;
+
+  /** Items de contrôle du périmètre = colonnes de la matrice. */
+  const scopedItems = useMemo(() => {
     const all = Array.from(mapping?.items.values() ?? []).sort((a, b) => a.code - b.code);
     const byItem = itemParam ? all.filter((i) => i.id === itemParam) : all;
-    const scoped =
-      pillarFilter === "all" ? byItem : byItem.filter((i) => i.pillar === pillarFilter);
-    const grouped = new Map<string, GridItem[]>();
-    for (const it of scoped) {
-      const arr = grouped.get(it.pillar) ?? [];
-      arr.push(it);
-      grouped.set(it.pillar, arr);
-    }
-    return Array.from(grouped, ([pillar, items]) => ({ pillar, items }));
-  }, [mapping, pillarFilter, itemParam]);
+    return effectivePillar === "all"
+      ? byItem
+      : byItem.filter((i) => i.pillar === effectivePillar);
+  }, [mapping, effectivePillar, itemParam]);
 
   const closed = audit?.status === "closed";
 
   const allWs = useMemo(() => workstations ?? [], [workstations]);
-  const visibleWs = useMemo(
-    () => (selectedWs === null ? allWs : allWs.filter((w) => selectedWs.includes(w.id))),
-    [allWs, selectedWs],
+  const visibleItems = useMemo(
+    () =>
+      selectedItems === null
+        ? scopedItems
+        : scopedItems.filter((i) => selectedItems.includes(i.id)),
+    [scopedItems, selectedItems],
   );
-  const allSelected = selectedWs === null || selectedWs.length === allWs.length;
+  const allSelected = selectedItems === null || selectedItems.length === scopedItems.length;
 
-  function toggleWs(wsId: string, checked: boolean) {
-    const base = selectedWs === null ? allWs.map((w) => w.id) : selectedWs;
-    const next = checked ? [...new Set([...base, wsId])] : base.filter((x) => x !== wsId);
-    setSelectedWs(next);
+  function toggleItem(itemId: string, checked: boolean) {
+    const base = selectedItems === null ? scopedItems.map((i) => i.id) : selectedItems;
+    const next = checked ? [...new Set([...base, itemId])] : base.filter((x) => x !== itemId);
+    setSelectedItems(next);
   }
 
   const setStatus = useMutation({
