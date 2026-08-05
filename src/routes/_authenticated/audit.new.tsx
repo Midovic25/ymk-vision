@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/audit/new")({
   }),
   errorComponent: routeErrorComponent("Configuration d'audit indisponible"),
   component: () => (
-    <RoleGate allowed={["admin", "moto_responsible"]}>
+    <RoleGate allowed={["moto_responsible"]}>
       <NewAuditPage />
     </RoleGate>
   ),

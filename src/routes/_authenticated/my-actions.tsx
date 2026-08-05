@@ -72,8 +72,32 @@ function MyActionsPage() {
     },
   });
 
+  // Priorisation métier : criticité décroissante, puis échéance la plus proche.
+  const PRIORITY_RANK: Record<string, number> = {
+    critique: 0,
+    critical: 0,
+    haute: 1,
+    high: 1,
+    normal: 2,
+    normale: 2,
+    basse: 3,
+    low: 3,
+  };
+
   const filtered = useMemo(
-    () => (actions ?? []).filter((a) => statusFilter === "all" || a.status === statusFilter),
+    () =>
+      (actions ?? [])
+        .filter((a) => statusFilter === "all" || a.status === statusFilter)
+        .sort((a, b) => {
+          const pa = PRIORITY_RANK[(a.priority ?? "normal").toLowerCase()] ?? 2;
+          const pb = PRIORITY_RANK[(b.priority ?? "normal").toLowerCase()] ?? 2;
+          if (pa !== pb) return pa - pb;
+          const da = a.due_date ?? "9999-12-31";
+          const db = b.due_date ?? "9999-12-31";
+          if (da !== db) return da < db ? -1 : 1;
+          return a.created_at < b.created_at ? 1 : -1;
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [actions, statusFilter],
   );
 

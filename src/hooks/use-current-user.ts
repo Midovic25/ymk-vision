@@ -124,7 +124,7 @@ export function useCurrentUser(): CurrentUser {
 
 /** Route d'accueil applicative selon le rôle (utilisateur connecté). */
 export function primaryRoute(roles: string[]): string {
-  if (roles.includes("admin")) return "/dashboard";
+  if (roles.includes("admin")) return "/admin";
   if (roles.includes("department_manager")) return "/dashboard";
   if (roles.includes("action_responsible")) return "/actions";
   if (roles.includes("moto_responsible")) return "/dashboard";

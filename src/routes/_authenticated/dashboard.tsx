@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   }),
   errorComponent: routeErrorComponent("Tableau de bord indisponible"),
   component: () => (
-    <RoleGate allowed={["admin", "department_manager", "moto_responsible"]}>
+    <RoleGate allowed={["department_manager", "moto_responsible"]}>
       <Dashboard />
     </RoleGate>
   ),

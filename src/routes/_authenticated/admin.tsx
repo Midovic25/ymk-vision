@@ -153,27 +153,37 @@ function AdminPage() {
         <CardHeader>
           <CardTitle>Utilisateurs</CardTitle>
         </CardHeader>
-        <CardContent>
-          <table className="w-full text-sm">
+        <CardContent className="p-0">
+          <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[1050px] table-fixed text-sm">
+            <colgroup>
+              <col className="w-[15%]" />
+              <col className="w-[20%]" />
+              <col className="w-[11%]" />
+              <col className="w-[15%]" />
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
+              <col className="w-[7%]" />
+            </colgroup>
             <thead>
-              <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+              <tr className="border-b bg-muted/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="py-2 px-3">Nom</th>
                 <th className="py-2 px-3">Email</th>
                 <th className="py-2 px-3">Département</th>
                 <th className="py-2 px-3">Compte</th>
                 <th className="py-2 px-3">Rôles</th>
                 <th className="py-2 px-3">Attribuer</th>
-                <th className="py-2 px-3 text-right">Suppression</th>
+                <th className="py-2 px-3 text-center">Suppr.</th>
               </tr>
             </thead>
             <tbody>
               {users?.map((u) => (
                 <tr key={u.id} className="border-b">
-                  <td className="py-2 px-3 font-medium">{u.full_name ?? "—"}</td>
-                  <td className="py-2 px-3">{normalizeCorporateEmail(u.email)}</td>
+                  <td className="py-2 px-3 font-medium truncate">{u.full_name ?? "—"}</td>
+                  <td className="py-2 px-3 truncate">{normalizeCorporateEmail(u.email)}</td>
                   <td className="py-2 px-3">{u.department ?? "—"}</td>
                   <td className="py-2 px-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={`text-[11px] font-semibold uppercase tracking-wider ${
                           u.approved
@@ -229,7 +239,7 @@ function AdminPage() {
                         assign.mutate({ userId: u.id, role: v as Role })
                       }
                     >
-                      <SelectTrigger className="w-48">
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="+ Rôle" />
                       </SelectTrigger>
                       <SelectContent>
@@ -240,7 +250,7 @@ function AdminPage() {
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="py-2 px-3 text-right">
+                  <td className="py-2 px-3 text-center">
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
@@ -273,6 +283,7 @@ function AdminPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </CardContent>
       </Card>
     </div>

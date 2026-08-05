@@ -18,6 +18,7 @@ import {
   signUpSchema,
 } from "@/lib/validation";
 import { Check, X } from "lucide-react";
+import { DEMO_ACCOUNTS } from "@/lib/demo-accounts";
 import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 
 export const Route = createFileRoute("/auth")({
@@ -271,21 +272,6 @@ function FieldError({ message }: { message?: string }) {
   return <p className="mt-1 text-xs font-medium text-destructive">{message}</p>;
 }
 
-const TEST_ACCOUNTS = [
-  { role: "Administrateur", email: "admin@yazaki-europe.com", password: "Admin@Yazaki2026" },
-  { role: "Auditeur MOTO", email: "auditor@yazaki-europe.com", password: "Audit@Yazaki2026" },
-  {
-    role: "Responsable Département",
-    email: "dept.manager@yazaki-europe.com",
-    password: "Manager@Yazaki2026",
-  },
-  {
-    role: "Responsable d'Action",
-    email: "action.resp1@yazaki-europe.com",
-    password: "Action@Yazaki2026",
-  },
-] as const;
-
 function TestAccountsPanel({
   onSelect,
 }: {
@@ -297,7 +283,7 @@ function TestAccountsPanel({
         <CardTitle className="text-sm">Comptes de démonstration</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {TEST_ACCOUNTS.map((a) => (
+        {DEMO_ACCOUNTS.map((a) => (
           <button
             key={a.email}
             type="button"
@@ -305,7 +291,9 @@ function TestAccountsPanel({
             className="flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:border-primary/60 hover:bg-primary/5"
           >
             <span className="min-w-0">
-              <span className="block text-xs font-semibold">{a.role}</span>
+              <span className="block text-xs font-semibold">
+                {a.role} <span className="font-normal text-muted-foreground">· {a.scope}</span>
+              </span>
               <span className="block truncate text-[11px] text-muted-foreground">{a.email}</span>
             </span>
             <span className="shrink-0 font-mono text-[11px] text-muted-foreground">

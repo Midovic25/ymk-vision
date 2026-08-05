@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Camera, Lock, Save } from "lucide-react";
 import { routeErrorComponent } from "@/components/RouteErrorBoundary";
@@ -52,7 +52,7 @@ export const Route = createFileRoute("/_authenticated/audit/$id")({
   }),
   errorComponent: routeErrorComponent("Audit indisponible"),
   component: () => (
-    <RoleGate allowed={["admin", "moto_responsible"]}>
+    <RoleGate allowed={["moto_responsible"]}>
       <AuditGrid />
     </RoleGate>
   ),
@@ -64,8 +64,8 @@ function AuditGrid() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [pillarFilter, setPillarFilter] = useState<string>(pillarParam ?? "all");
-  /** `null` = tous les postes de la ligne (bouton « Sélectionner tout »). */
-  const [selectedWs, setSelectedWs] = useState<string[] | null>(null);
+  /** `null` = tous les items du périmètre (bouton « Sélectionner tout »). */
+  const [selectedItems, setSelectedItems] = useState<string[] | null>(null);
   const [ngDialog, setNgDialog] = useState<{
     entryIds: string[];
     item: GridItem;
@@ -160,33 +160,41 @@ function AuditGrid() {
     return Array.from(s).sort();
   }, [mapping]);
 
-  const rows = useMemo(() => {
+  /**
+   * Le pilier transmis par l'écran de configuration provient du référentiel
+   * « postes » ; s'il ne correspond à aucun pilier d'item du périmètre, on
+   * retombe sur « tous » afin de ne jamais afficher une grille vide.
+   */
+  const effectivePillar =
+    pillarFilter !== "all" && pillars.length > 0 && !pillars.includes(pillarFilter)
+      ? "all"
+      : pillarFilter;
+
+  /** Items de contrôle du périmètre = colonnes de la matrice. */
+  const scopedItems = useMemo(() => {
     const all = Array.from(mapping?.items.values() ?? []).sort((a, b) => a.code - b.code);
     const byItem = itemParam ? all.filter((i) => i.id === itemParam) : all;
-    const scoped =
-      pillarFilter === "all" ? byItem : byItem.filter((i) => i.pillar === pillarFilter);
-    const grouped = new Map<string, GridItem[]>();
-    for (const it of scoped) {
-      const arr = grouped.get(it.pillar) ?? [];
-      arr.push(it);
-      grouped.set(it.pillar, arr);
-    }
-    return Array.from(grouped, ([pillar, items]) => ({ pillar, items }));
-  }, [mapping, pillarFilter, itemParam]);
+    return effectivePillar === "all"
+      ? byItem
+      : byItem.filter((i) => i.pillar === effectivePillar);
+  }, [mapping, effectivePillar, itemParam]);
 
   const closed = audit?.status === "closed";
 
   const allWs = useMemo(() => workstations ?? [], [workstations]);
-  const visibleWs = useMemo(
-    () => (selectedWs === null ? allWs : allWs.filter((w) => selectedWs.includes(w.id))),
-    [allWs, selectedWs],
+  const visibleItems = useMemo(
+    () =>
+      selectedItems === null
+        ? scopedItems
+        : scopedItems.filter((i) => selectedItems.includes(i.id)),
+    [scopedItems, selectedItems],
   );
-  const allSelected = selectedWs === null || selectedWs.length === allWs.length;
+  const allSelected = selectedItems === null || selectedItems.length === scopedItems.length;
 
-  function toggleWs(wsId: string, checked: boolean) {
-    const base = selectedWs === null ? allWs.map((w) => w.id) : selectedWs;
-    const next = checked ? [...new Set([...base, wsId])] : base.filter((x) => x !== wsId);
-    setSelectedWs(next);
+  function toggleItem(itemId: string, checked: boolean) {
+    const base = selectedItems === null ? scopedItems.map((i) => i.id) : selectedItems;
+    const next = checked ? [...new Set([...base, itemId])] : base.filter((x) => x !== itemId);
+    setSelectedItems(next);
   }
 
   const setStatus = useMutation({
@@ -226,12 +234,19 @@ function AuditGrid() {
   async function evaluate(
     cells: Array<{ wsId: string; itemId: string }>,
     status: Status,
-    item: GridItem,
+    item: GridItem | null,
     workstationLabel: string,
   ) {
     if (closed || cells.length === 0) return;
     const entryIds = await setStatus.mutateAsync({ cells, status });
-    if (status === "NG") setNgDialog({ entryIds, item, workstationLabel });
+    if (status !== "NG") return;
+    if (item) {
+      setNgDialog({ entryIds, item, workstationLabel });
+    } else {
+      toast.warning(
+        `${cells.length} non-conformité(s) enregistrée(s) sur ${workstationLabel} — complétez chaque rapport NG depuis la cellule concernée.`,
+      );
+    }
   }
 
   const stats = useMemo(() => {
@@ -395,7 +410,7 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Postes de travail de la ligne ({visibleWs.length}/{allWs.length} sélectionnés)
+            Items à faire ({visibleItems.length}/{scopedItems.length} sélectionnés)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -404,31 +419,38 @@ function AuditGrid() {
               size="sm"
               variant={allSelected ? "default" : "outline"}
               disabled={closed}
-              onClick={() => setSelectedWs(allSelected ? [] : null)}
+              onClick={() => setSelectedItems(allSelected ? [] : null)}
             >
               {allSelected ? "Tout désélectionner" : "Sélectionner tout"}
             </Button>
             <span className="text-xs text-muted-foreground">
-              Après « Sélectionner tout », vous pouvez décocher individuellement les postes
-              non concernés.
+              Après « Sélectionner tout », vous pouvez décocher individuellement les items
+              de contrôle non concernés par cet audit.
             </span>
           </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
-            {allWs.map((w) => {
-              const checked = selectedWs === null || selectedWs.includes(w.id);
+          <div className="grid max-h-56 gap-x-5 gap-y-2 overflow-auto sm:grid-cols-2 lg:grid-cols-3">
+            {scopedItems.map((it) => {
+              const checked = selectedItems === null || selectedItems.includes(it.id);
               return (
-                <label key={w.id} className="flex items-center gap-2 text-xs">
+                <label key={it.id} className="flex items-start gap-2 text-xs">
                   <Checkbox
                     checked={checked}
                     disabled={closed}
-                    onCheckedChange={(v) => toggleWs(w.id, v === true)}
+                    onCheckedChange={(v) => toggleItem(it.id, v === true)}
                   />
-                  {w.name}
+                  <span className="min-w-0">
+                    <span className="font-semibold">#{it.code}</span>{" "}
+                    <span className="text-muted-foreground">
+                      {(it.description ?? it.category ?? "—").slice(0, 60)}
+                    </span>
+                  </span>
                 </label>
               );
             })}
-            {allWs.length === 0 && (
-              <span className="text-xs text-muted-foreground">Aucun poste sur ce périmètre.</span>
+            {scopedItems.length === 0 && (
+              <span className="text-xs text-muted-foreground">
+                Aucun item de contrôle sur ce périmètre.
+              </span>
             )}
           </div>
         </CardContent>
@@ -437,7 +459,7 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Items de contrôle × Postes de travail ({visibleWs.length} postes)
+            Postes de travail × Items de contrôle ({allWs.length} postes · {visibleItems.length} items)
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -446,7 +468,7 @@ function AuditGrid() {
               <thead className="sticky top-0 z-20">
                 <tr>
                   <th className="sticky left-0 z-30 bg-card border-b border-r px-3 py-2 text-left text-xs uppercase text-muted-foreground min-w-[280px]">
-                    Item de contrôle
+                    Poste de travail
                   </th>
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground min-w-[210px]">
                     Actions globales
@@ -454,121 +476,107 @@ function AuditGrid() {
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
                     Score
                   </th>
-                  {visibleWs.map((w) => (
+                  {visibleItems.map((it) => (
                     <th
-                      key={w.id}
+                      key={it.id}
+                      title={it.description ?? undefined}
                       className="bg-card border-b border-r px-2 py-2 text-[11px] font-semibold whitespace-nowrap"
                     >
-                      {w.name}
+                      #{it.code}
+                      <div className="text-[9px] font-normal uppercase tracking-wide text-muted-foreground">
+                        {it.pillar}
+                      </div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((group) => (
-                  <Fragment key={group.pillar}>
-                    <tr>
-                      <td
-                        colSpan={visibleWs.length + 3}
-                        className="bg-muted/60 border-b px-3 py-1.5 text-xs font-bold uppercase tracking-wider"
-                      >
-                        Pilier · {group.pillar}
+                {allWs.map((w) => {
+                  const applicable = visibleItems.filter((it) =>
+                    mapping?.pairs.has(`${w.id}:${it.id}`),
+                  );
+                  const okCount = applicable.filter(
+                    (it) => entries?.get(`${w.id}:${it.id}`)?.status === "OK",
+                  ).length;
+                  const wsScore = applicable.length
+                    ? Math.round((okCount / applicable.length) * 100)
+                    : 0;
+                  return (
+                    <tr key={w.id} className="hover:bg-muted/30">
+                      <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-1.5 align-top">
+                        <div className="font-medium max-w-[260px] truncate">{w.name}</div>
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {(w.pillars as { name: string } | null)?.name ?? "—"}
+                        </div>
                       </td>
-                    </tr>
-                    {group.items.map((it) => {
-                      const applicable = visibleWs.filter((w) =>
-                        mapping?.pairs.has(`${w.id}:${it.id}`),
-                      );
-                      const evaluatedCells = applicable
-                        .map((w) => entries?.get(`${w.id}:${it.id}`)?.status)
-                        .filter((s): s is Status => s === "OK" || s === "NG");
-                      const okCount = evaluatedCells.filter((s) => s === "OK").length;
-                      const itemScore = applicable.length
-                        ? Math.round((okCount / applicable.length) * 100)
-                        : 0;
-                      return (
-                        <tr key={it.id} className="hover:bg-muted/30">
-                          <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-1.5 align-top">
-                            <div className="font-medium">#{it.code}</div>
-                            {it.category && (
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-primary/80 max-w-[260px] truncate">
-                                {it.category}
+                      <td className="border-b border-r px-2 py-1.5">
+                        <div className="flex gap-1">
+                          {(["OK", "NG", "NA"] as Status[]).map((s) => (
+                            <StatusButton
+                              key={s}
+                              status={s}
+                              label={`ALL ${s}`}
+                              active={false}
+                              compact
+                              disabled={closed || setStatus.isPending}
+                              onClick={() =>
+                                void evaluate(
+                                  applicable.map((it) => ({ wsId: w.id, itemId: it.id })),
+                                  s,
+                                  null,
+                                  w.name,
+                                )
+                              }
+                            />
+                          ))}
+                        </div>
+                      </td>
+                      <td className="border-b border-r px-2 py-1.5 text-center">
+                        <div className="text-sm font-bold">{wsScore}%</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {okCount}/{applicable.length}
+                        </div>
+                      </td>
+                      {visibleItems.map((it) => {
+                        const ok = mapping?.pairs.has(`${w.id}:${it.id}`);
+                        const current = entries?.get(`${w.id}:${it.id}`);
+                        return (
+                          <td key={it.id} className="border-b border-r px-2 py-1.5">
+                            {ok ? (
+                              <div className="flex gap-1">
+                                {(["OK", "NG", "NA"] as Status[]).map((s) => (
+                                  <StatusButton
+                                    key={s}
+                                    status={s}
+                                    compact
+                                    active={current?.status === s}
+                                    disabled={closed || setStatus.isPending}
+                                    onClick={() =>
+                                      void evaluate(
+                                        [{ wsId: w.id, itemId: it.id }],
+                                        s,
+                                        it,
+                                        w.name,
+                                      )
+                                    }
+                                  />
+                                ))}
                               </div>
+                            ) : (
+                              <div className="text-center text-muted-foreground">—</div>
                             )}
-                            <div className="text-xs text-muted-foreground line-clamp-2 max-w-[260px]">
-                              {it.description ?? "—"}
-                            </div>
                           </td>
-                          <td className="border-b border-r px-2 py-1.5">
-                            <div className="flex gap-1">
-                              {(["OK", "NG", "NA"] as Status[]).map((s) => (
-                                <StatusButton
-                                  key={s}
-                                  status={s}
-                                  label={`ALL ${s}`}
-                                  active={false}
-                                  compact
-                                  disabled={closed || setStatus.isPending}
-                                  onClick={() =>
-                                    void evaluate(
-                                      applicable.map((w) => ({ wsId: w.id, itemId: it.id })),
-                                      s,
-                                      it,
-                                      "Tous les postes",
-                                    )
-                                  }
-                                />
-                              ))}
-                            </div>
-                          </td>
-                          <td className="border-b border-r px-2 py-1.5 text-center">
-                            <div className="text-sm font-bold">{itemScore}%</div>
-                            <div className="text-[10px] text-muted-foreground">
-                              {okCount}/{applicable.length}
-                            </div>
-                          </td>
-                          {visibleWs.map((w) => {
-                            const ok = mapping?.pairs.has(`${w.id}:${it.id}`);
-                            const current = entries?.get(`${w.id}:${it.id}`);
-                            return (
-                              <td key={w.id} className="border-b border-r px-2 py-1.5">
-                                {ok ? (
-                                  <div className="flex gap-1">
-                                    {(["OK", "NG", "NA"] as Status[]).map((s) => (
-                                      <StatusButton
-                                        key={s}
-                                        status={s}
-                                        compact
-                                        active={current?.status === s}
-                                        disabled={closed || setStatus.isPending}
-                                        onClick={() =>
-                                          void evaluate(
-                                            [{ wsId: w.id, itemId: it.id }],
-                                            s,
-                                            it,
-                                            w.name,
-                                          )
-                                        }
-                                      />
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-center text-muted-foreground">—</div>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </Fragment>
-                ))}
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-          {rows.length === 0 && (
+          {(visibleItems.length === 0 || allWs.length === 0) && (
             <div className="p-8 text-center text-muted-foreground text-sm">
-              Aucun item de contrôle pour ce périmètre.
+              Aucun item de contrôle ou poste de travail pour ce périmètre.
             </div>
           )}
         </CardContent>
