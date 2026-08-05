@@ -9,6 +9,8 @@ import {
   LogOut,
   BarChart3,
   Inbox,
+  KeyRound,
+  Activity,
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,18 +34,19 @@ type Item = {
   url: string;
   icon: typeof Home;
   exact?: boolean;
-  adminOnly?: boolean;
   roles?: string[];
 };
 
 const items: Item[] = [
   { title: "Accueil", url: "/home", icon: Home, exact: true },
-  { title: "Tableau de bord", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "department_manager", "moto_responsible"] },
+  { title: "Tableau de bord", url: "/dashboard", icon: LayoutDashboard, roles: ["department_manager", "moto_responsible"] },
   { title: "Pilotage département", url: "/department", icon: BarChart3, roles: ["department_manager"] },
   { title: "Saisie d'audit", url: "/audit", icon: ClipboardList, roles: ["moto_responsible"] },
   { title: "Mes actions", url: "/my-actions", icon: Inbox, roles: ["action_responsible"] },
-  { title: "Plans d'action", url: "/actions", icon: AlertTriangle, roles: ["admin", "action_responsible", "department_manager", "moto_responsible"] },
-  { title: "Administration", url: "/admin", icon: Users, adminOnly: true },
+  { title: "Plans d'action", url: "/actions", icon: AlertTriangle, roles: ["action_responsible", "department_manager", "moto_responsible"] },
+  { title: "Administration", url: "/admin", icon: Users, roles: ["admin"] },
+  { title: "Propriétés comptes", url: "/accounts", icon: KeyRound, roles: ["admin"] },
+  { title: "Activité utilisateurs", url: "/activity", icon: Activity, roles: ["admin"] },
   { title: "Mon profil", url: "/profile", icon: User },
 ];
 
@@ -52,7 +55,6 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { roles } = useCurrentUser();
-  const isAdmin = roles.includes("admin");
   const homeUrl = "/";
 
   const isActive = (url: string, exact?: boolean) =>
@@ -95,15 +97,9 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items
-                .filter((it) => {
-                  if (it.adminOnly) return isAdmin;
-                  if (it.roles) {
-                    // L'administrateur pilote la plateforme : pas de saisie d'audit.
-                    if (it.url === "/audit") return roles.includes("moto_responsible");
-                    return isAdmin || it.roles.some((r) => roles.includes(r));
-                  }
-                  return true;
-                })
+                // Navigation strictement métier : l'administrateur pilote les comptes,
+                // il n'exécute ni audit ni plan d'action.
+                .filter((it) => !it.roles || it.roles.some((r) => roles.includes(r)))
                 .map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
