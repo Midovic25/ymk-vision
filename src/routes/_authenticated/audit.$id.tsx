@@ -234,12 +234,19 @@ function AuditGrid() {
   async function evaluate(
     cells: Array<{ wsId: string; itemId: string }>,
     status: Status,
-    item: GridItem,
+    item: GridItem | null,
     workstationLabel: string,
   ) {
     if (closed || cells.length === 0) return;
     const entryIds = await setStatus.mutateAsync({ cells, status });
-    if (status === "NG") setNgDialog({ entryIds, item, workstationLabel });
+    if (status !== "NG") return;
+    if (item) {
+      setNgDialog({ entryIds, item, workstationLabel });
+    } else {
+      toast.warning(
+        `${cells.length} non-conformité(s) enregistrée(s) sur ${workstationLabel} — complétez chaque rapport NG depuis la cellule concernée.`,
+      );
+    }
   }
 
   const stats = useMemo(() => {
