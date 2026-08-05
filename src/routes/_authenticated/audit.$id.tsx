@@ -403,7 +403,7 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Postes de travail de la ligne ({visibleWs.length}/{allWs.length} sélectionnés)
+            Items à faire ({visibleItems.length}/{scopedItems.length} sélectionnés)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -412,31 +412,38 @@ function AuditGrid() {
               size="sm"
               variant={allSelected ? "default" : "outline"}
               disabled={closed}
-              onClick={() => setSelectedWs(allSelected ? [] : null)}
+              onClick={() => setSelectedItems(allSelected ? [] : null)}
             >
               {allSelected ? "Tout désélectionner" : "Sélectionner tout"}
             </Button>
             <span className="text-xs text-muted-foreground">
-              Après « Sélectionner tout », vous pouvez décocher individuellement les postes
-              non concernés.
+              Après « Sélectionner tout », vous pouvez décocher individuellement les items
+              de contrôle non concernés par cet audit.
             </span>
           </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
-            {allWs.map((w) => {
-              const checked = selectedWs === null || selectedWs.includes(w.id);
+          <div className="grid max-h-56 gap-x-5 gap-y-2 overflow-auto sm:grid-cols-2 lg:grid-cols-3">
+            {scopedItems.map((it) => {
+              const checked = selectedItems === null || selectedItems.includes(it.id);
               return (
-                <label key={w.id} className="flex items-center gap-2 text-xs">
+                <label key={it.id} className="flex items-start gap-2 text-xs">
                   <Checkbox
                     checked={checked}
                     disabled={closed}
-                    onCheckedChange={(v) => toggleWs(w.id, v === true)}
+                    onCheckedChange={(v) => toggleItem(it.id, v === true)}
                   />
-                  {w.name}
+                  <span className="min-w-0">
+                    <span className="font-semibold">#{it.code}</span>{" "}
+                    <span className="text-muted-foreground">
+                      {(it.description ?? it.category ?? "—").slice(0, 60)}
+                    </span>
+                  </span>
                 </label>
               );
             })}
-            {allWs.length === 0 && (
-              <span className="text-xs text-muted-foreground">Aucun poste sur ce périmètre.</span>
+            {scopedItems.length === 0 && (
+              <span className="text-xs text-muted-foreground">
+                Aucun item de contrôle sur ce périmètre.
+              </span>
             )}
           </div>
         </CardContent>
@@ -445,7 +452,7 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Items de contrôle × Postes de travail ({visibleWs.length} postes)
+            Postes de travail × Items de contrôle ({allWs.length} postes · {visibleItems.length} items)
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -454,7 +461,7 @@ function AuditGrid() {
               <thead className="sticky top-0 z-20">
                 <tr>
                   <th className="sticky left-0 z-30 bg-card border-b border-r px-3 py-2 text-left text-xs uppercase text-muted-foreground min-w-[280px]">
-                    Item de contrôle
+                    Poste de travail
                   </th>
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground min-w-[210px]">
                     Actions globales
@@ -462,12 +469,16 @@ function AuditGrid() {
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
                     Score
                   </th>
-                  {visibleWs.map((w) => (
+                  {visibleItems.map((it) => (
                     <th
-                      key={w.id}
+                      key={it.id}
+                      title={it.description ?? undefined}
                       className="bg-card border-b border-r px-2 py-2 text-[11px] font-semibold whitespace-nowrap"
                     >
-                      {w.name}
+                      #{it.code}
+                      <div className="text-[9px] font-normal uppercase tracking-wide text-muted-foreground">
+                        {it.pillar}
+                      </div>
                     </th>
                   ))}
                 </tr>
