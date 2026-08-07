@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import { ArrowLeft, Camera, Lock, Save } from "lucide-react";
 import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 import { RoleGate } from "@/hooks/use-role-guard";
 import { normalizeCorporateEmail } from "@/lib/validation";
+import { notifyActionResponsible } from "@/lib/notify.functions";
 
 type Status = "OK" | "NG" | "NA";
 
@@ -257,6 +259,7 @@ function AuditGrid() {
     }
     return s;
   }, [entries]);
+  const notifyGroup = useServerFn(notifyActionResponsible);
   const evaluated = stats.OK + stats.NG;
   const score = evaluated > 0 ? Math.round((stats.OK / evaluated) * 1000) / 10 : 0;
 
@@ -320,6 +323,23 @@ function AuditGrid() {
           ].join("\n"),
         }));
         if (notif.length) await supabase.from("notifications").insert(notif);
+
+        // Un seul e-mail récapitulatif par responsable d'action (aucun envoi
+        // pour les items OK / NA : aucune tâche n'est générée).
+        await Promise.allSettled(
+          Array.from(byResponsible, ([userId, list]) =>
+            notifyGroup({
+              data: {
+                userId,
+                context: `Clôture de l'audit MOTO du ${audit?.audit_date ?? ""} sur la ligne ${lineName} : ${list.length} non-conformité(s) vous sont assignées.`,
+                items: list.map(
+                  (a) =>
+                    `${a.issue_description} — priorité ${a.priority ?? "normale"} — échéance ${a.due_date ?? "à définir"}`,
+                ),
+              },
+            }),
+          ),
+        );
       }
 
       const { error } = await supabase
@@ -670,21 +690,16 @@ function NgDialog({
   const [assignedTo, setAssignedTo] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const notify = useServerFn(notifyActionResponsible);
 
   const { data: responsibles } = useQuery({
     queryKey: ["action-responsibles"],
     queryFn: async () => {
-      const { data: rows } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "action_responsible");
-      const ids = (rows ?? []).map((r) => r.user_id);
-      if (!ids.length) return [];
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, department")
-        .in("id", ids);
-      return profs ?? [];
+      // Annuaire exposé par une fonction sécurisée : les auditeurs n'ont pas
+      // accès direct à la table des rôles, mais doivent pouvoir assigner.
+      const { data, error } = await supabase.rpc("list_action_responsibles");
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -733,6 +748,22 @@ function NgDialog({
           dialog.entryIds.length > 1 ? "s" : ""
         })`,
       );
+      // Notification e-mail immédiate : l'adresse est résolue côté serveur
+      // depuis le profil du responsable choisi.
+      try {
+        const res = await notify({
+          data: {
+            userId: assignedTo,
+            context: `Une non-conformité a été relevée lors d'un audit MOTO sur ${dialog.workstationLabel}.`,
+            items: [`Item #${dialog.item.code} — ${desc} (échéance ${dueDate})`],
+          },
+        });
+        if (res.sent) toast.success("Responsable notifié par e-mail.");
+        else if ("reason" in res && res.reason === "not_configured")
+          toast.info("Action enregistrée — service e-mail non encore configuré.");
+      } catch {
+        toast.info("Action enregistrée — notification e-mail différée.");
+      }
       qc.invalidateQueries({ queryKey: ["actions"] });
       reset();
       onClose();
