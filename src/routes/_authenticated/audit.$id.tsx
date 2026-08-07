@@ -674,17 +674,11 @@ function NgDialog({
   const { data: responsibles } = useQuery({
     queryKey: ["action-responsibles"],
     queryFn: async () => {
-      const { data: rows } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "action_responsible");
-      const ids = (rows ?? []).map((r) => r.user_id);
-      if (!ids.length) return [];
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, department")
-        .in("id", ids);
-      return profs ?? [];
+      // Annuaire exposé par une fonction sécurisée : les auditeurs n'ont pas
+      // accès direct à la table des rôles, mais doivent pouvoir assigner.
+      const { data, error } = await supabase.rpc("list_action_responsibles");
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
