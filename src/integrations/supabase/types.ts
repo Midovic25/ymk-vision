@@ -321,6 +321,7 @@ export type Database = {
           full_name: string | null
           id: string
           line_id: string | null
+          notify_email: string | null
         }
         Insert: {
           approved?: boolean
@@ -332,6 +333,7 @@ export type Database = {
           full_name?: string | null
           id: string
           line_id?: string | null
+          notify_email?: string | null
         }
         Update: {
           approved?: boolean
@@ -343,6 +345,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           line_id?: string | null
+          notify_email?: string | null
         }
         Relationships: []
       }
@@ -457,6 +460,15 @@ export type Database = {
       }
       is_action_responsible: { Args: { _user_id: string }; Returns: boolean }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
+      list_action_responsibles: {
+        Args: never
+        Returns: {
+          department: string
+          email: string
+          full_name: string
+          id: string
+        }[]
+      }
     }
     Enums: {
       action_status: "Not started" | "On going" | "Close" | "In delay"
