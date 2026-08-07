@@ -259,6 +259,7 @@ function AuditGrid() {
     }
     return s;
   }, [entries]);
+  const notifyGroup = useServerFn(notifyActionResponsible);
   const evaluated = stats.OK + stats.NG;
   const score = evaluated > 0 ? Math.round((stats.OK / evaluated) * 1000) / 10 : 0;
 
@@ -322,6 +323,23 @@ function AuditGrid() {
           ].join("\n"),
         }));
         if (notif.length) await supabase.from("notifications").insert(notif);
+
+        // Un seul e-mail récapitulatif par responsable d'action (aucun envoi
+        // pour les items OK / NA : aucune tâche n'est générée).
+        await Promise.allSettled(
+          Array.from(byResponsible, ([userId, list]) =>
+            notifyGroup({
+              data: {
+                userId,
+                context: `Clôture de l'audit MOTO du ${audit?.audit_date ?? ""} sur la ligne ${lineName} : ${list.length} non-conformité(s) vous sont assignées.`,
+                items: list.map(
+                  (a) =>
+                    `${a.issue_description} — priorité ${a.priority ?? "normale"} — échéance ${a.due_date ?? "à définir"}`,
+                ),
+              },
+            }),
+          ),
+        );
       }
 
       const { error } = await supabase
