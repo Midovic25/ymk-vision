@@ -672,6 +672,7 @@ function NgDialog({
   const [assignedTo, setAssignedTo] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const notify = useServerFn(notifyActionResponsible);
 
   const { data: responsibles } = useQuery({
     queryKey: ["action-responsibles"],
@@ -729,6 +730,22 @@ function NgDialog({
           dialog.entryIds.length > 1 ? "s" : ""
         })`,
       );
+      // Notification e-mail immédiate : l'adresse est résolue côté serveur
+      // depuis le profil du responsable choisi.
+      try {
+        const res = await notify({
+          data: {
+            userId: assignedTo,
+            context: `Une non-conformité a été relevée lors d'un audit MOTO sur ${dialog.workstationLabel}.`,
+            items: [`Item #${dialog.item.code} — ${desc} (échéance ${dueDate})`],
+          },
+        });
+        if (res.sent) toast.success("Responsable notifié par e-mail.");
+        else if ("reason" in res && res.reason === "not_configured")
+          toast.info("Action enregistrée — service e-mail non encore configuré.");
+      } catch {
+        toast.info("Action enregistrée — notification e-mail différée.");
+      }
       qc.invalidateQueries({ queryKey: ["actions"] });
       reset();
       onClose();
