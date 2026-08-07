@@ -167,8 +167,8 @@ function NewAuditPage() {
         to: "/audit/$id",
         params: { id: a.id },
         search: {
-          ...(pillar === "all" ? {} : { pillar }),
-          ...(checkPoint === "all" ? {} : { item: checkPoint }),
+          pillar: pillar === "all" ? undefined : pillar,
+          item: checkPoint === "all" ? undefined : checkPoint,
         },
       }),
     onError: (e: unknown) =>

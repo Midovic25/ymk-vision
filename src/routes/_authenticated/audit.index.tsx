@@ -92,7 +92,11 @@ function AuditList() {
                     </td>
                     <td className="py-2 px-3 text-right">
                       <Button asChild size="sm" variant="ghost">
-                        <Link to="/audit/$id" params={{ id: a.id }}>
+                        <Link
+                          to="/audit/$id"
+                          params={{ id: a.id }}
+                          search={{ pillar: undefined, item: undefined }}
+                        >
                           Ouvrir →
                         </Link>
                       </Button>
