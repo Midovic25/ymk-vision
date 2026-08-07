@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import { ArrowLeft, Camera, Lock, Save } from "lucide-react";
 import { routeErrorComponent } from "@/components/RouteErrorBoundary";
 import { RoleGate } from "@/hooks/use-role-guard";
 import { normalizeCorporateEmail } from "@/lib/validation";
+import { notifyActionResponsible } from "@/lib/notify.functions";
 
 type Status = "OK" | "NG" | "NA";
 
