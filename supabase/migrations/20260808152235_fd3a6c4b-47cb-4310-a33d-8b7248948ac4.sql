@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION private.list_action_responsibles() TO authenticated;
