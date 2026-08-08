@@ -480,7 +480,7 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Items de contrôle × Postes de travail ({visibleItems.length} items · {allWs.length} postes)
+            Items de contrôle × Postes de travail ({allWs.length} postes · {visibleItems.length} items)
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
