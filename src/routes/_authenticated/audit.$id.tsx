@@ -430,7 +430,8 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Items à faire ({visibleItems.length}/{scopedItems.length} sélectionnés)
+            Items de contrôle à auditer — cochez pour filtrer la matrice (
+            {visibleItems.length}/{scopedItems.length} sélectionnés)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -479,7 +480,7 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Postes de travail × Items de contrôle ({allWs.length} postes · {visibleItems.length} items)
+            Items de contrôle × Postes de travail ({visibleItems.length} items · {allWs.length} postes)
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -488,7 +489,7 @@ function AuditGrid() {
               <thead className="sticky top-0 z-20">
                 <tr>
                   <th className="sticky left-0 z-30 bg-card border-b border-r px-3 py-2 text-left text-xs uppercase text-muted-foreground min-w-[280px]">
-                    Poste de travail
+                    Item de contrôle
                   </th>
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground min-w-[210px]">
                     Actions globales
@@ -496,37 +497,39 @@ function AuditGrid() {
                   <th className="bg-card border-b border-r px-2 py-2 text-xs uppercase text-muted-foreground">
                     Score
                   </th>
-                  {visibleItems.map((it) => (
+                  {allWs.map((w) => (
                     <th
-                      key={it.id}
-                      title={it.description ?? undefined}
+                      key={w.id}
+                      title={w.name}
                       className="bg-card border-b border-r px-2 py-2 text-[11px] font-semibold whitespace-nowrap"
                     >
-                      #{it.code}
+                      {w.name}
                       <div className="text-[9px] font-normal uppercase tracking-wide text-muted-foreground">
-                        {it.pillar}
+                        {(w.pillars as { name: string } | null)?.name ?? "—"}
                       </div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {allWs.map((w) => {
-                  const applicable = visibleItems.filter((it) =>
+                {visibleItems.map((it) => {
+                  const applicable = allWs.filter((w) =>
                     mapping?.pairs.has(`${w.id}:${it.id}`),
                   );
                   const okCount = applicable.filter(
-                    (it) => entries?.get(`${w.id}:${it.id}`)?.status === "OK",
+                    (w) => entries?.get(`${w.id}:${it.id}`)?.status === "OK",
                   ).length;
                   const wsScore = applicable.length
                     ? Math.round((okCount / applicable.length) * 100)
                     : 0;
                   return (
-                    <tr key={w.id} className="hover:bg-muted/30">
+                    <tr key={it.id} className="hover:bg-muted/30">
                       <td className="sticky left-0 z-10 bg-card border-b border-r px-3 py-1.5 align-top">
-                        <div className="font-medium max-w-[260px] truncate">{w.name}</div>
+                        <div className="font-medium max-w-[260px] truncate" title={it.description ?? undefined}>
+                          #{it.code} — {it.description ?? it.category ?? "Sans libellé"}
+                        </div>
                         <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                          {(w.pillars as { name: string } | null)?.name ?? "—"}
+                          {it.pillar}
                         </div>
                       </td>
                       <td className="border-b border-r px-2 py-1.5">
@@ -541,10 +544,10 @@ function AuditGrid() {
                               disabled={closed || setStatus.isPending}
                               onClick={() =>
                                 void evaluate(
-                                  applicable.map((it) => ({ wsId: w.id, itemId: it.id })),
+                                  applicable.map((w) => ({ wsId: w.id, itemId: it.id })),
                                   s,
-                                  null,
-                                  w.name,
+                                  s === "NG" ? null : it,
+                                  `tous les postes (#${it.code})`,
                                 )
                               }
                             />
@@ -557,11 +560,11 @@ function AuditGrid() {
                           {okCount}/{applicable.length}
                         </div>
                       </td>
-                      {visibleItems.map((it) => {
+                      {allWs.map((w) => {
                         const ok = mapping?.pairs.has(`${w.id}:${it.id}`);
                         const current = entries?.get(`${w.id}:${it.id}`);
                         return (
-                          <td key={it.id} className="border-b border-r px-2 py-1.5">
+                          <td key={w.id} className="border-b border-r px-2 py-1.5">
                             {ok ? (
                               <div className="flex gap-1">
                                 {(["OK", "NG", "NA"] as Status[]).map((s) => (
