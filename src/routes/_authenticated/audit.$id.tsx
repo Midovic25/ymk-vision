@@ -430,7 +430,8 @@ function AuditGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">
-            Items à faire ({visibleItems.length}/{scopedItems.length} sélectionnés)
+            Items de contrôle à auditer — cochez pour filtrer la matrice (
+            {visibleItems.length}/{scopedItems.length} sélectionnés)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
